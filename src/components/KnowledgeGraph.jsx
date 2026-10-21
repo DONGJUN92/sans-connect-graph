@@ -101,7 +101,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       // 1:1 Direct Connection Lines Mode:
       // Target Person at (0,0) -> Connected Colleagues in a clean circle around them
       const count = connectedColleagues.length;
-      const ringRadius = Math.max(290, (count * 115) / (2 * Math.PI));
+      const ringRadius = Math.max(335, (count * 120) / (2 * Math.PI));
 
       connectedColleagues.forEach((item, idx) => {
         const angle = (2 * Math.PI * idx) / Math.max(1, count) - Math.PI / 2;
@@ -150,9 +150,10 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
           target: nodeId,
           kind: 'DIRECT_BRIDGE',
           color: lineColor,
-          width: Math.min(4.5, 2 + item.totalScore * 0.35),
+          width: Math.min(4.5, 2.2 + item.totalScore * 0.35),
           label: badges.slice(0, 2).map((b) => b.text).join(' · '),
           extraCount: Math.max(0, badges.length - 2),
+          labelPosRatio: idx % 2 === 0 ? 0.45 : 0.64,
           isPrimary: true
         });
       });
@@ -208,7 +209,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
     }
 
     const r1Count = ring1Hubs.length;
-    const r1Radius = Math.max(210, (r1Count * 110) / (2 * Math.PI));
+    const r1Radius = Math.max(225, (r1Count * 115) / (2 * Math.PI));
 
     ring1Hubs.forEach((hub, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
@@ -229,7 +230,6 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         kind: `HERO_TO_${hub.hubKind}`,
         color: hub.color,
         width: 3.2,
-        label: hub.subLabel,
         isPrimary: true
       });
     });
@@ -383,7 +383,6 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         kind: 'CLUB_TO_MEMBER',
         color: targetClub.color,
         width: 3.2,
-        label: m.team,
         isPrimary: true
       });
     });
@@ -1191,6 +1190,9 @@ export default function KnowledgeGraph({
               const dy = t.y - s.y;
               const mx = (s.x + t.x) / 2;
               const my = (s.y + t.y) / 2;
+              const labelRatio = edge.labelPosRatio || 0.5;
+              const lx = s.x + dx * labelRatio;
+              const ly = s.y + dy * labelRatio;
 
               // Calculate gentle perpendicular curve offset when not radial straight
               const dist = Math.hypot(dx, dy) || 1;
@@ -1233,7 +1235,7 @@ export default function KnowledgeGraph({
 
                   {/* Edge Midpoint Badge in Direct Connection Mode or Primary Labeled Edges */}
                   {edge.label && (focus.type !== 'ALL' || isHighlighted) && (
-                    <g transform={`translate(${mx}, ${my})`}>
+                    <g transform={`translate(${lx}, ${ly})`}>
                       <rect
                         x={-Math.max(38, edge.label.length * 5.8 + (edge.extraCount ? 14 : 0))}
                         y={-11}

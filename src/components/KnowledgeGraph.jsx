@@ -6,33 +6,60 @@ import {
   ZoomOut,
   Maximize2,
   Sparkles,
-  Users,
   Network,
   GitCommitHorizontal,
   Eye,
-  EyeOff
+  EyeOff,
+  Compass
 } from 'lucide-react';
 
-function getKeywordColor(keyword) {
+// Brighter, luminous starlight colors for dark constellation sky
+const CLUB_STAR_COLORS = {
+  '멘토링 클럽': '#FBBF24', // Gold
+  '스피치 클럽': '#FB7185', // Rose Pink
+  'AI 클럽': '#A78BFA', // Violet
+  '골프 클럽': '#34D399', // Emerald
+  '논어 클럽': '#F59E0B', // Amber
+  '댄스 클럽': '#F472B6', // Pink
+  '러닝 클럽': '#A3E635', // Lime
+  '바이오 클럽': '#2DD4BF', // Teal
+  '부동산 클럽': '#60A5FA', // Blue
+  '연극 클럽': '#FB923C', // Orange
+  '영화 클럽': '#C084FC', // Purple
+  '중급 영어 북클럽': '#818CF8', // Indigo
+  '초급 영어 북클럽': '#38BDF8', // Sky
+  '태극권 클럽': '#F87171', // Coral Red
+  'English Speech 클럽': '#22D3EE', // Cyan
+  'Sans 레가타 (SANS REGATTA)': '#38BDF8' // Ocean Sky
+};
+
+function getKeywordStarColor(keyword) {
   for (const cat of KEYWORD_CATEGORIES) {
     if (cat.keywords.includes(keyword)) {
-      return { color: cat.color, bg: cat.bg, title: cat.title };
+      if (cat.id === 'solidarity') return '#60A5FA';
+      if (cat.id === 'growth') return '#34D399';
+      if (cat.id === 'vitality') return '#FBBF24';
+      if (cat.id === 'warmth') return '#FB7185';
+      if (cat.id === 'clublife') return '#A78BFA';
+      if (cat.id === 'seasons') return '#2DD4BF';
     }
   }
-  return { color: '#0D9488', bg: '#F0FDFA', title: '공감 키워드' };
+  return '#38BDF8';
 }
 
-/**
- * Dynamically builds nodes and edges based on the current focus:
- * - { type: 'ALL' }: SANS at center -> 16 Clubs -> All Members
- * - { type: 'MEMBER', id: memberName }: Selected Person at center ->
- *     Submode 'HUB': Person -> (My Clubs + My Team + My Keywords) -> Connected Members
- *     Submode 'DIRECT': Person -> Directly connected Members with shared badges on lines
- * - { type: 'CLUB', id: clubName }: Selected Club at center -> Club Members -> (Their Teams, Other Clubs, Shared Keywords)
- * - { type: 'TEAM', id: teamName }: Selected Team (1조~20조) at center -> Team Members -> (Their Clubs & Keywords)
- * - { type: 'KEYWORD', id: keyword }: Selected Keyword at center -> Members sharing that keyword -> Their Clubs & Teams
- */
-function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnectedInAll = true) {
+// Deterministic background starfield so it doesn't flicker on re-render
+const BACKGROUND_STARS = Array.from({ length: 150 }, (_, i) => {
+  const seed1 = Math.sin(i * 12.9898) * 43758.5453;
+  const seed2 = Math.sin(i * 78.233) * 43758.5453;
+  const rx = (seed1 - Math.floor(seed1)) * 2200 - 1100;
+  const ry = (seed2 - Math.floor(seed2)) * 1600 - 800;
+  const r = (i % 5 === 0) ? 2.1 : (i % 3 === 0) ? 1.4 : 0.9;
+  const opacity = 0.2 + ((i * 17) % 65) / 100;
+  const twinkle = i % 7 === 0;
+  return { id: i, x: rx, y: ry, r, opacity, twinkle };
+});
+
+function buildGraphLayout(members, focus, personSubMode = 'HUB') {
   const nodes = [];
   const edges = [];
   const nodeMap = new Map();
@@ -55,15 +82,15 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
   const clubByName = new Map(SANS_CLUBS.map((c) => [c.name, c]));
 
   // =========================================================================
-  // 1. FOCUS: SPECIFIC MEMBER (특정 이름 선택 시 — 가독성 최우선!)
+  // 1. FOCUS: SPECIFIC MEMBER (특정 이름 선택 시 — 나만의 별자리 관계도)
   // =========================================================================
   if (focus.type === 'MEMBER') {
     const targetMember = members.find((m) => m.name === focus.id);
     if (!targetMember) {
-      return buildGraphLayout(members, { type: 'ALL' }, personSubMode, showUnconnectedInAll);
+      return buildGraphLayout(members, { type: 'ALL' }, personSubMode);
     }
 
-    // Center Hero Node: The Selected Person
+    // Center Supernova Star: Selected Person
     addNode({
       id: `member:${targetMember.name}`,
       key: targetMember.name,
@@ -73,12 +100,11 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       member: targetMember,
       x: 0,
       y: 0,
-      radius: 48,
-      color: '#4F46E5',
-      bg: '#EEF2FF'
+      radius: 44,
+      color: '#38BDF8'
     });
 
-    // Find all colleagues connected to targetMember via Club, Team, or Keyword
+    // Find all colleagues connected via Club, Team, or Keyword
     const connectedColleagues = [];
     for (const m of members) {
       if (m.name === targetMember.name) continue;
@@ -98,34 +124,24 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
     }
 
     if (personSubMode === 'DIRECT') {
-      // 1:1 Direct Connection Lines Mode:
-      // Target Person at (0,0) -> Connected Colleagues in a clean circle around them
       const count = connectedColleagues.length;
-      const ringRadius = Math.max(335, (count * 120) / (2 * Math.PI));
+      const ringRadius = Math.max(340, (count * 122) / (2 * Math.PI));
 
       connectedColleagues.forEach((item, idx) => {
         const angle = (2 * Math.PI * idx) / Math.max(1, count) - Math.PI / 2;
         const m = item.member;
-        const primaryClub = clubByName.get(item.sharedClubs[0] || m.clubs[0]);
-        const lineColor = primaryClub
-          ? primaryClub.color
-          : item.sameTeam
-          ? '#4F46E5'
-          : '#059669';
+        const firstClubName = item.sharedClubs[0] || m.clubs[0];
+        const lineColor = CLUB_STAR_COLORS[firstClubName] || (item.sameTeam ? '#818CF8' : '#34D399');
 
         const badges = [
           ...item.sharedClubs.map((c) => ({
             text: clubByName.get(c)?.shortName || c,
-            color: clubByName.get(c)?.color || '#4F46E5',
-            bg: clubByName.get(c)?.bgLight || '#EEF2FF'
+            color: CLUB_STAR_COLORS[c] || '#38BDF8'
           })),
-          ...(item.sameTeam
-            ? [{ text: item.sameTeam, color: '#4338CA', bg: '#E0E7FF' }]
-            : []),
+          ...(item.sameTeam ? [{ text: item.sameTeam, color: '#818CF8' }] : []),
           ...item.sharedKeywords.map((k) => ({
             text: k,
-            color: '#047857',
-            bg: '#D1FAE5'
+            color: '#34D399'
           }))
         ];
 
@@ -140,9 +156,8 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
           sharedBadges: badges,
           x: Math.cos(angle) * ringRadius,
           y: Math.sin(angle) * ringRadius,
-          radius: 30,
-          color: lineColor,
-          bg: '#FFFFFF'
+          radius: 24,
+          color: lineColor
         });
 
         addEdge({
@@ -150,7 +165,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
           target: nodeId,
           kind: 'DIRECT_BRIDGE',
           color: lineColor,
-          width: Math.min(4.5, 2.2 + item.totalScore * 0.35),
+          width: Math.min(4.2, 2.2 + item.totalScore * 0.3),
           label: badges.slice(0, 2).map((b) => b.text).join(' · '),
           extraCount: Math.max(0, badges.length - 2),
           labelPosRatio: idx % 2 === 0 ? 0.45 : 0.64,
@@ -161,8 +176,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       return { nodes, edges };
     }
 
-    // Submode 'HUB': Knowledge Graph Multi-Hop View
-    // Ring 1: Target Member's Clubs + Team + Keywords
+    // Submode 'HUB': Constellation Multi-Hop Knowledge Graph
     const ring1Hubs = [];
 
     for (const cName of targetMember.clubs) {
@@ -175,8 +189,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         fullName: cName,
         subLabel: '소속 클럽',
         club: cObj,
-        color: cObj?.color || '#6366F1',
-        bg: cObj?.bgLight || '#EEF2FF',
+        color: CLUB_STAR_COLORS[cName] || '#A78BFA',
         hubKind: 'CLUB'
       });
     }
@@ -188,28 +201,25 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         nodeType: 'TEAM',
         label: `산스 ${targetMember.team}`,
         subLabel: '소속 조',
-        color: '#4338CA',
-        bg: '#E0E7FF',
+        color: '#818CF8',
         hubKind: 'TEAM'
       });
     }
 
     for (const kw of targetMember.keywords) {
-      const kwTheme = getKeywordColor(kw);
       ring1Hubs.push({
         id: `keyword:${kw}`,
         key: kw,
         nodeType: 'KEYWORD',
         label: kw,
         subLabel: '공감 키워드',
-        color: kwTheme.color,
-        bg: kwTheme.bg,
+        color: getKeywordStarColor(kw),
         hubKind: 'KEYWORD'
       });
     }
 
     const r1Count = ring1Hubs.length;
-    const r1Radius = Math.max(225, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(230, (r1Count * 115) / (2 * Math.PI));
 
     ring1Hubs.forEach((hub, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
@@ -221,7 +231,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         x: hx,
         y: hy,
         angle,
-        radius: hub.nodeType === 'CLUB' ? 34 : 30
+        radius: hub.nodeType === 'CLUB' ? 30 : 25
       });
 
       addEdge({
@@ -229,12 +239,12 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         target: hub.id,
         kind: `HERO_TO_${hub.hubKind}`,
         color: hub.color,
-        width: 3.2,
+        width: 3.0,
         isPrimary: true
       });
     });
 
-    // Ring 2: Connected Colleagues placed near the average angle of the Ring 1 hubs they connect to!
+    // Ring 2: Connected Colleague Stars
     const scoredWithAngle = connectedColleagues.map((item) => {
       const matchingHubs = ring1Hubs.filter(
         (h) =>
@@ -243,7 +253,6 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
           (h.hubKind === 'KEYWORD' && item.sharedKeywords.includes(h.key))
       );
 
-      // Compute circular mean of angles
       let sinSum = 0;
       let cosSum = 0;
       matchingHubs.forEach((mh) => {
@@ -258,14 +267,12 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       return { ...item, matchingHubs, preferredAngle };
     });
 
-    // Sort by preferredAngle so outer ring nodes never cross unnecessarily
     scoredWithAngle.sort((a, b) => a.preferredAngle - b.preferredAngle);
 
     const r2Count = scoredWithAngle.length;
-    const r2Radius = Math.max(430, r1Radius + 210, (r2Count * 105) / (2 * Math.PI));
+    const r2Radius = Math.max(440, r1Radius + 210, (r2Count * 108) / (2 * Math.PI));
 
     scoredWithAngle.forEach((item, idx) => {
-      // Blend preferred angle with even spacing so no two outer nodes collide
       const evenAngle = (2 * Math.PI * idx) / Math.max(1, r2Count) - Math.PI;
       const m = item.member;
       const mx = Math.cos(evenAngle) * r2Radius;
@@ -274,16 +281,12 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       const badges = [
         ...item.sharedClubs.map((c) => ({
           text: clubByName.get(c)?.shortName || c,
-          color: clubByName.get(c)?.color || '#4F46E5',
-          bg: clubByName.get(c)?.bgLight || '#EEF2FF'
+          color: CLUB_STAR_COLORS[c] || '#38BDF8'
         })),
-        ...(item.sameTeam
-          ? [{ text: item.sameTeam, color: '#4338CA', bg: '#E0E7FF' }]
-          : []),
+        ...(item.sameTeam ? [{ text: item.sameTeam, color: '#818CF8' }] : []),
         ...item.sharedKeywords.map((k) => ({
           text: k,
-          color: '#047857',
-          bg: '#D1FAE5'
+          color: '#34D399'
         }))
       ];
 
@@ -300,9 +303,8 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         sharedBadges: badges,
         x: mx,
         y: my,
-        radius: 28,
-        color: primaryHub?.color || '#4F46E5',
-        bg: '#FFFFFF'
+        radius: 23,
+        color: primaryHub?.color || '#38BDF8'
       });
 
       item.matchingHubs.forEach((mh) => {
@@ -311,7 +313,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
           target: memberNodeId,
           kind: `${mh.hubKind}_TO_MEMBER`,
           color: mh.color,
-          width: mh.hubKind === 'CLUB' ? 2.4 : 2.0,
+          width: mh.hubKind === 'CLUB' ? 2.2 : 1.8,
           isPrimary: false
         });
       });
@@ -321,43 +323,38 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
   }
 
   // =========================================================================
-  // 2. FOCUS: SPECIFIC CLUB (클럽 선택 시 — 해당 클럽 중심 지식그래프)
+  // 2. FOCUS: SPECIFIC CLUB (클럽 선택 시 — 클럽 중심 별자리)
   // =========================================================================
   if (focus.type === 'CLUB') {
     const targetClub = SANS_CLUBS.find((c) => c.name === focus.id) || SANS_CLUBS[0];
     const clubMembers = members.filter((m) => m.clubs.includes(targetClub.name));
+    const starColor = CLUB_STAR_COLORS[targetClub.name] || '#38BDF8';
 
-    // Center Hero Node: Selected Club
     addNode({
       id: `club:${targetClub.name}`,
       key: targetClub.name,
       nodeType: 'CLUB_HERO',
       label: targetClub.name,
-      subLabel: `소속 멤버 ${clubMembers.length}명`,
+      subLabel: `소속 별 ${clubMembers.length}명`,
       club: targetClub,
       x: 0,
       y: 0,
-      radius: 52,
-      color: targetClub.color,
-      bg: targetClub.bgLight
+      radius: 48,
+      color: starColor
     });
 
-    // Ring 1: Members of this Club
     const r1Count = clubMembers.length;
-    const r1Radius = Math.max(220, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(225, (r1Count * 115) / (2 * Math.PI));
 
     clubMembers.forEach((m, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
-      const mx = Math.cos(angle) * r1Radius;
-      const my = Math.sin(angle) * r1Radius;
       const mNodeId = `member:${m.name}`;
 
       const badges = [
-        { text: m.team, color: '#4338CA', bg: '#E0E7FF' },
+        { text: m.team, color: '#818CF8' },
         ...m.keywords.slice(0, 2).map((k) => ({
           text: k,
-          color: '#047857',
-          bg: '#D1FAE5'
+          color: '#34D399'
         }))
       ];
 
@@ -369,25 +366,24 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         subLabel: m.team,
         member: m,
         sharedBadges: badges,
-        x: mx,
-        y: my,
+        x: Math.cos(angle) * r1Radius,
+        y: Math.sin(angle) * r1Radius,
         angle,
-        radius: 30,
-        color: targetClub.color,
-        bg: '#FFFFFF'
+        radius: 25,
+        color: starColor
       });
 
       addEdge({
         source: `club:${targetClub.name}`,
         target: mNodeId,
         kind: 'CLUB_TO_MEMBER',
-        color: targetClub.color,
-        width: 3.2,
+        color: starColor,
+        width: 3.0,
         isPrimary: true
       });
     });
 
-    // Also connect club members directly if they share keywords or same team
+    // Connect club members who share team or keywords
     for (let i = 0; i < clubMembers.length; i++) {
       for (let j = i + 1; j < clubMembers.length; j++) {
         const m1 = clubMembers[i];
@@ -399,7 +395,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
             source: `member:${m1.name}`,
             target: `member:${m2.name}`,
             kind: 'PEER_RESONANCE',
-            color: sameTeam ? '#4F46E5' : '#10B981',
+            color: sameTeam ? '#818CF8' : '#34D399',
             width: 1.8,
             dashed: true,
             label: sameTeam || sharedKw[0]
@@ -408,16 +404,25 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       }
     }
 
-    // Ring 2: Connected Other Clubs, Teams, and Shared Keywords of these members
+    // Ring 2: Other Clubs, Teams, Keywords
     const outerNodes = [];
-
-    // 2a. Other clubs these members also belong to (Cross-club bridges!)
     const otherClubMap = new Map();
+    const teamMap = new Map();
+    const kwMap = new Map();
+
     clubMembers.forEach((m) => {
       m.clubs.forEach((cName) => {
         if (cName === targetClub.name) return;
         if (!otherClubMap.has(cName)) otherClubMap.set(cName, []);
         otherClubMap.get(cName).push(m);
+      });
+      if (m.team) {
+        if (!teamMap.has(m.team)) teamMap.set(m.team, []);
+        teamMap.get(m.team).push(m);
+      }
+      m.keywords.forEach((kw) => {
+        if (!kwMap.has(kw)) kwMap.set(kw, []);
+        kwMap.get(kw).push(m);
       });
     });
 
@@ -429,21 +434,11 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         nodeType: 'CLUB',
         label: cObj?.shortName ? `${cObj.shortName} 클럽` : cName,
         fullName: cName,
-        subLabel: `교차 멤버 ${bridgeMembers.length}명`,
         club: cObj,
-        color: cObj?.color || '#6366F1',
-        bg: cObj?.bgLight || '#EEF2FF',
+        color: CLUB_STAR_COLORS[cName] || '#A78BFA',
         bridgeMembers
       });
     }
-
-    // 2b. Teams of these club members
-    const teamMap = new Map();
-    clubMembers.forEach((m) => {
-      if (!m.team) return;
-      if (!teamMap.has(m.team)) teamMap.set(m.team, []);
-      teamMap.get(m.team).push(m);
-    });
 
     for (const [tName, tMembers] of teamMap.entries()) {
       outerNodes.push({
@@ -451,37 +446,22 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         key: tName,
         nodeType: 'TEAM',
         label: `산스 ${tName}`,
-        subLabel: `${targetClub.shortName} 소속 ${tMembers.length}명`,
-        color: '#4338CA',
-        bg: '#E0E7FF',
+        color: '#818CF8',
         bridgeMembers: tMembers
       });
     }
 
-    // 2c. Keywords selected by these club members
-    const kwMap = new Map();
-    clubMembers.forEach((m) => {
-      m.keywords.forEach((kw) => {
-        if (!kwMap.has(kw)) kwMap.set(kw, []);
-        kwMap.get(kw).push(m);
-      });
-    });
-
     for (const [kw, kMembers] of kwMap.entries()) {
-      const kwTheme = getKeywordColor(kw);
       outerNodes.push({
         id: `keyword:${kw}`,
         key: kw,
         nodeType: 'KEYWORD',
         label: kw,
-        subLabel: `${kMembers.length}명 공감`,
-        color: kwTheme.color,
-        bg: kwTheme.bg,
+        color: getKeywordStarColor(kw),
         bridgeMembers: kMembers
       });
     }
 
-    // Sort outer nodes by average angle of their bridgeMembers
     outerNodes.forEach((on) => {
       let sinSum = 0;
       let cosSum = 0;
@@ -497,7 +477,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
     outerNodes.sort((a, b) => a.prefAngle - b.prefAngle);
 
     const r2Count = outerNodes.length;
-    const r2Radius = Math.max(430, r1Radius + 195, (r2Count * 98) / (2 * Math.PI));
+    const r2Radius = Math.max(435, r1Radius + 195, (r2Count * 100) / (2 * Math.PI));
 
     outerNodes.forEach((on, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r2Count) - Math.PI;
@@ -505,7 +485,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         ...on,
         x: Math.cos(angle) * r2Radius,
         y: Math.sin(angle) * r2Radius,
-        radius: on.nodeType === 'CLUB' ? 32 : 26
+        radius: on.nodeType === 'CLUB' ? 28 : 23
       });
 
       on.bridgeMembers.forEach((bm) => {
@@ -514,7 +494,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
           target: on.id,
           kind: 'MEMBER_TO_OUTER',
           color: on.color,
-          width: on.nodeType === 'CLUB' ? 2.4 : 1.8
+          width: on.nodeType === 'CLUB' ? 2.2 : 1.6
         });
       });
     });
@@ -523,7 +503,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
   }
 
   // =========================================================================
-  // 3. FOCUS: SPECIFIC TEAM (1조~20조 선택 시 — 조 중심 지식그래프)
+  // 3. FOCUS: SPECIFIC TEAM (1조~20조 선택 시 — 조 중심 별자리)
   // =========================================================================
   if (focus.type === 'TEAM') {
     const teamName = focus.id;
@@ -537,21 +517,19 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       subLabel: `소속 구성원 ${teamMembers.length}명`,
       x: 0,
       y: 0,
-      radius: 50,
-      color: '#4338CA',
-      bg: '#E0E7FF'
+      radius: 46,
+      color: '#818CF8'
     });
 
     const r1Count = teamMembers.length;
-    const r1Radius = Math.max(210, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(215, (r1Count * 115) / (2 * Math.PI));
 
     teamMembers.forEach((m, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
       const mNodeId = `member:${m.name}`;
       const badges = m.clubs.map((c) => ({
         text: clubByName.get(c)?.shortName || c,
-        color: clubByName.get(c)?.color || '#4F46E5',
-        bg: clubByName.get(c)?.bgLight || '#EEF2FF'
+        color: CLUB_STAR_COLORS[c] || '#38BDF8'
       }));
 
       addNode({
@@ -559,28 +537,26 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         key: m.name,
         nodeType: 'MEMBER',
         label: m.name,
-        subLabel: `클럽 ${m.clubs.length}개 활동`,
+        subLabel: `클럽 ${m.clubs.length}개`,
         member: m,
         sharedBadges: badges,
         x: Math.cos(angle) * r1Radius,
         y: Math.sin(angle) * r1Radius,
         angle,
-        radius: 30,
-        color: '#4338CA',
-        bg: '#FFFFFF'
+        radius: 25,
+        color: '#818CF8'
       });
 
       addEdge({
         source: `team:${teamName}`,
         target: mNodeId,
         kind: 'TEAM_TO_MEMBER',
-        color: '#4338CA',
-        width: 3.2,
+        color: '#818CF8',
+        width: 3.0,
         isPrimary: true
       });
     });
 
-    // Ring 2: Clubs and Keywords of these team members
     const outerHubs = [];
     const clubMap = new Map();
     const kwMap = new Map();
@@ -603,31 +579,25 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         key: cName,
         nodeType: 'CLUB',
         label: cObj?.shortName ? `${cObj.shortName} 클럽` : cName,
-        fullName: cName,
-        subLabel: `${teamName}에서 ${cMembers.length}명 참여`,
         club: cObj,
-        color: cObj?.color || '#6366F1',
-        bg: cObj?.bgLight || '#EEF2FF',
+        color: CLUB_STAR_COLORS[cName] || '#A78BFA',
         bridgeMembers: cMembers
       });
     }
 
     for (const [kw, kMembers] of kwMap.entries()) {
-      const kwTheme = getKeywordColor(kw);
       outerHubs.push({
         id: `keyword:${kw}`,
         key: kw,
         nodeType: 'KEYWORD',
         label: kw,
-        subLabel: `${kMembers.length}명 선택`,
-        color: kwTheme.color,
-        bg: kwTheme.bg,
+        color: getKeywordStarColor(kw),
         bridgeMembers: kMembers
       });
     }
 
     const r2Count = outerHubs.length;
-    const r2Radius = Math.max(410, r1Radius + 190, (r2Count * 100) / (2 * Math.PI));
+    const r2Radius = Math.max(415, r1Radius + 190, (r2Count * 100) / (2 * Math.PI));
 
     outerHubs.forEach((oh, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r2Count) - Math.PI / 2;
@@ -635,7 +605,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         ...oh,
         x: Math.cos(angle) * r2Radius,
         y: Math.sin(angle) * r2Radius,
-        radius: oh.nodeType === 'CLUB' ? 32 : 26
+        radius: oh.nodeType === 'CLUB' ? 28 : 23
       });
 
       oh.bridgeMembers.forEach((bm) => {
@@ -644,7 +614,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
           target: oh.id,
           kind: 'MEMBER_TO_HUB',
           color: oh.color,
-          width: oh.nodeType === 'CLUB' ? 2.4 : 1.8
+          width: oh.nodeType === 'CLUB' ? 2.2 : 1.7
         });
       });
     });
@@ -653,11 +623,11 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
   }
 
   // =========================================================================
-  // 4. FOCUS: SPECIFIC KEYWORD (키워드 선택 시)
+  // 4. FOCUS: SPECIFIC KEYWORD (키워드 중심 별자리)
   // =========================================================================
   if (focus.type === 'KEYWORD') {
     const keyword = focus.id;
-    const kwTheme = getKeywordColor(keyword);
+    const starColor = getKeywordStarColor(keyword);
     const kwMembers = members.filter((m) => m.keywords.includes(keyword));
 
     addNode({
@@ -668,23 +638,21 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       subLabel: `공감 구성원 ${kwMembers.length}명`,
       x: 0,
       y: 0,
-      radius: 48,
-      color: kwTheme.color,
-      bg: kwTheme.bg
+      radius: 44,
+      color: starColor
     });
 
     const r1Count = kwMembers.length;
-    const r1Radius = Math.max(220, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(225, (r1Count * 115) / (2 * Math.PI));
 
     kwMembers.forEach((m, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
       const mNodeId = `member:${m.name}`;
       const badges = [
-        { text: m.team, color: '#4338CA', bg: '#E0E7FF' },
+        { text: m.team, color: '#818CF8' },
         ...m.clubs.map((c) => ({
           text: clubByName.get(c)?.shortName || c,
-          color: clubByName.get(c)?.color || '#4F46E5',
-          bg: clubByName.get(c)?.bgLight || '#EEF2FF'
+          color: CLUB_STAR_COLORS[c] || '#38BDF8'
         }))
       ];
 
@@ -698,17 +666,16 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
         sharedBadges: badges,
         x: Math.cos(angle) * r1Radius,
         y: Math.sin(angle) * r1Radius,
-        radius: 30,
-        color: kwTheme.color,
-        bg: '#FFFFFF'
+        radius: 25,
+        color: starColor
       });
 
       addEdge({
         source: `keyword:${keyword}`,
         target: mNodeId,
         kind: 'KEYWORD_TO_MEMBER',
-        color: kwTheme.color,
-        width: 3.0,
+        color: starColor,
+        width: 2.8,
         isPrimary: true
       });
     });
@@ -717,22 +684,20 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
   }
 
   // =========================================================================
-  // 5. DEFAULT FOCUS: ALL SANS (산스 전체 은하수 지식그래프)
+  // 5. DEFAULT FOCUS: ALL SANS GALAXY (산스 전체 은하수 별자리)
   // =========================================================================
   addNode({
     id: 'core:SANS',
     key: 'SANS',
     nodeType: 'SANS_CORE',
     label: '산스 (SANS)',
-    subLabel: `16개 클럽 · ${members.length}명 연결`,
+    subLabel: `16개 클럽 · ${members.length}개의 별`,
     x: 0,
     y: 0,
-    radius: 54,
-    color: '#312E81',
-    bg: '#E0E7FF'
+    radius: 50,
+    color: '#FBBF24'
   });
 
-  // Ring 1: 16 SANS Clubs
   const clubRadius = 265;
   const clubAngles = new Map();
 
@@ -740,6 +705,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
     const angle = (2 * Math.PI * idx) / SANS_CLUBS.length - Math.PI / 2;
     clubAngles.set(club.name, angle);
     const clubMembersCount = members.filter((m) => m.clubs.includes(club.name)).length;
+    const starColor = CLUB_STAR_COLORS[club.name] || '#38BDF8';
 
     const clubNodeId = `club:${club.name}`;
     addNode({
@@ -753,21 +719,19 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       x: Math.cos(angle) * clubRadius,
       y: Math.sin(angle) * clubRadius,
       angle,
-      radius: 33,
-      color: club.color,
-      bg: club.bgLight
+      radius: 29,
+      color: starColor
     });
 
     addEdge({
       source: 'core:SANS',
       target: clubNodeId,
       kind: 'SANS_TO_CLUB',
-      color: '#CBD5E1',
-      width: 1.8
+      color: '#475569',
+      width: 1.5
     });
   });
 
-  // Ring 2: All Members arranged smoothly by their clubs' angular position
   const membersWithAngle = members.map((m, idx) => {
     let sinSum = 0;
     let cosSum = 0;
@@ -788,19 +752,19 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
   membersWithAngle.sort((a, b) => a.prefAngle - b.prefAngle);
 
   const mCount = membersWithAngle.length;
-  const memberRadius = Math.max(495, (mCount * 86) / (2 * Math.PI));
+  const memberRadius = Math.max(500, (mCount * 88) / (2 * Math.PI));
 
   membersWithAngle.forEach(({ member: m }, idx) => {
     const angle = (2 * Math.PI * idx) / Math.max(1, mCount) - Math.PI;
     const mNodeId = `member:${m.name}`;
-    const primaryClub = clubByName.get(m.clubs[0]);
+    const firstClubName = m.clubs[0];
+    const starColor = CLUB_STAR_COLORS[firstClubName] || '#38BDF8';
 
     const badges = [
-      { text: m.team, color: '#4338CA', bg: '#E0E7FF' },
+      { text: m.team, color: '#818CF8' },
       ...m.clubs.slice(0, 2).map((c) => ({
         text: clubByName.get(c)?.shortName || c,
-        color: clubByName.get(c)?.color || '#4F46E5',
-        bg: clubByName.get(c)?.bgLight || '#EEF2FF'
+        color: CLUB_STAR_COLORS[c] || '#38BDF8'
       }))
     ];
 
@@ -814,30 +778,26 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB', showUnconnected
       sharedBadges: badges,
       x: Math.cos(angle) * memberRadius,
       y: Math.sin(angle) * memberRadius,
-      radius: m.clubs.length > 1 ? 28 : 25,
-      color: primaryClub?.color || '#4F46E5',
-      bg: '#FFFFFF'
+      radius: m.clubs.length > 1 ? 23 : 20,
+      color: starColor
     });
 
     if (m.clubs.length > 0) {
       m.clubs.forEach((cName) => {
-        const cObj = clubByName.get(cName);
-        if (cObj) {
-          addEdge({
-            source: `club:${cName}`,
-            target: mNodeId,
-            kind: 'CLUB_TO_MEMBER',
-            color: cObj.color,
-            width: m.clubs.length > 1 ? 2.4 : 1.9
-          });
-        }
+        addEdge({
+          source: `club:${cName}`,
+          target: mNodeId,
+          kind: 'CLUB_TO_MEMBER',
+          color: CLUB_STAR_COLORS[cName] || '#38BDF8',
+          width: m.clubs.length > 1 ? 2.2 : 1.7
+        });
       });
     } else {
       addEdge({
         source: 'core:SANS',
         target: mNodeId,
         kind: 'SANS_TO_MEMBER',
-        color: '#94A3B8',
+        color: '#64748B',
         width: 1.5
       });
     }
@@ -857,12 +817,10 @@ export default function KnowledgeGraph({
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [dimUnconnected, setDimUnconnected] = useState(true);
 
-  // Camera Pan & Zoom state
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 0.85 });
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
 
-  // Node custom drag offset map
   const [dragOffsets, setDragOffsets] = useState({});
   const draggingNodeRef = useRef(null);
 
@@ -871,14 +829,13 @@ export default function KnowledgeGraph({
     [members, focus, personSubMode]
   );
 
-  // Reset custom drag offsets and auto-fit camera when focus changes
   useEffect(() => {
     setDragOffsets({});
     setHoveredNodeId(null);
     if (focus.type === 'ALL') {
       setTransform({ x: 0, y: 0, k: 0.72 });
     } else if (focus.type === 'MEMBER' && personSubMode === 'DIRECT') {
-      setTransform({ x: 0, y: 0, k: 0.92 });
+      setTransform({ x: 0, y: 0, k: 0.90 });
     } else {
       setTransform({ x: 0, y: 0, k: 0.82 });
     }
@@ -897,7 +854,6 @@ export default function KnowledgeGraph({
     return map;
   }, [nodesWithDrag]);
 
-  // Compute adjacency set for hover highlighting
   const activeConnectedSet = useMemo(() => {
     if (!hoveredNodeId) return null;
     const set = new Set([hoveredNodeId]);
@@ -908,7 +864,6 @@ export default function KnowledgeGraph({
     return set;
   }, [hoveredNodeId, edges]);
 
-  // Mouse / Touch handlers for smooth Pan & Zoom
   const handleWheel = (e) => {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
@@ -999,125 +954,116 @@ export default function KnowledgeGraph({
   };
 
   return (
-    <div className="relative w-full h-full bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 overflow-hidden select-none">
-      {/* Subtle Background Grid Pattern */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-45"
-        style={{
-          backgroundImage: 'radial-gradient(#CBD5E1 1px, transparent 1px)',
-          backgroundSize: '24px 24px'
-        }}
-      />
-
-      {/* Top-Left Floating Context Badge & Mode Switcher */}
-      <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100%-90px)]">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-sm rounded-xl px-3.5 py-2 flex items-center gap-2.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse" />
-          <div className="text-xs sm:text-sm font-semibold text-slate-800">
-            {focus.type === 'ALL' && '🌟 산스(SANS) 전체 연결 그래프'}
-            {focus.type === 'MEMBER' && `👤 [${focus.id}]님 중심 연결 관계도`}
-            {focus.type === 'CLUB' && `🏛️ [${focus.id}] 중심 지식그래프`}
-            {focus.type === 'TEAM' && `🚩 [산스 ${focus.id}] 중심 지식그래프`}
-            {focus.type === 'KEYWORD' && `🏷️ [${focus.id}] 공감 연결 그래프`}
+    <div
+      className="relative w-full h-full overflow-hidden select-none"
+      style={{
+        background: 'radial-gradient(ellipse at 50% 45%, #111C38 0%, #090E1E 55%, #040711 100%)'
+      }}
+    >
+      {/* Top-Left Floating Context Pill & Mode Switcher */}
+      <div className="absolute top-3.5 left-3.5 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100%-90px)]">
+        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-lg rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#22D3EE] animate-pulse" />
+          <div className="text-xs sm:text-sm font-extrabold text-white">
+            {focus.type === 'ALL' && '🌌 산스(SANS) 전체 은하수 별자리'}
+            {focus.type === 'MEMBER' && `✨ [${focus.id}]님의 연결 별자리`}
+            {focus.type === 'CLUB' && `🏛️ [${focus.id}] 별자리 지식그래프`}
+            {focus.type === 'TEAM' && `🚩 [산스 ${focus.id}] 별자리 지식그래프`}
+            {focus.type === 'KEYWORD' && `🏷️ [${focus.id}] 공감 별자리`}
           </div>
           {focus.type !== 'ALL' && (
             <button
               onClick={() => onSelectFocus({ type: 'ALL', id: null })}
-              className="ml-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition"
+              className="ml-1 text-xs font-extrabold text-cyan-300 hover:text-white bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/30 px-3 py-1 rounded-xl transition"
             >
-              전체 산스 보기
+              전체 은하수 보기
             </button>
           )}
         </div>
 
-        {/* When a specific member is selected, allow switching between Knowledge Hub View and Direct 1:1 Line View */}
         {focus.type === 'MEMBER' && (
-          <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-sm rounded-xl p-1 flex items-center gap-1">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-lg rounded-2xl p-1 flex items-center gap-1">
             <button
               onClick={() => onChangePersonSubMode('HUB')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition ${
                 personSubMode === 'HUB'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
               <Network className="w-3.5 h-3.5" />
-              클럽·조·키워드 허브 뷰
+              다중 별자리 허브 뷰
             </button>
             <button
               onClick={() => onChangePersonSubMode('DIRECT')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition ${
                 personSubMode === 'DIRECT'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
               }`}
             >
               <GitCommitHorizontal className="w-3.5 h-3.5" />
-              1:1 직통 연결선 뷰
+              1:1 직통 별자리 뷰
             </button>
           </div>
         )}
       </div>
 
-      {/* Bottom-Right Floating Zoom & View Controls */}
-      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-1.5 bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-xl p-1.5">
+      {/* Bottom-Right Floating Zoom Controls */}
+      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-xl rounded-2xl p-1.5">
         <button
-          onClick={() =>
-            setTransform((p) => ({ ...p, k: Math.min(2.4, p.k * 1.18) }))
-          }
+          onClick={() => setTransform((p) => ({ ...p, k: Math.min(2.4, p.k * 1.18) }))}
           title="확대"
-          className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition"
+          className="p-2.5 text-slate-200 hover:bg-slate-800 rounded-xl transition"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
-          onClick={() =>
-            setTransform((p) => ({ ...p, k: Math.max(0.32, p.k * 0.84) }))
-          }
+          onClick={() => setTransform((p) => ({ ...p, k: Math.max(0.32, p.k * 0.84) }))}
           title="축소"
-          className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition"
+          className="p-2.5 text-slate-200 hover:bg-slate-800 rounded-xl transition"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
         <button
           onClick={handleResetView}
-          title="화면 중앙 맞춤"
-          className="p-2 text-slate-700 hover:bg-slate-100 rounded-lg transition"
+          title="중앙 정렬"
+          className="p-2.5 text-slate-200 hover:bg-slate-800 rounded-xl transition"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
         <button
           onClick={() => setDimUnconnected((v) => !v)}
-          title={dimUnconnected ? '호버 시 연결선 강조 켜짐' : '호버 강조 끄기'}
-          className={`p-2 rounded-lg transition ${
-            dimUnconnected ? 'text-indigo-600 bg-indigo-50' : 'text-slate-500 hover:bg-slate-100'
+          title="연결 강조 토글"
+          className={`p-2.5 rounded-xl transition ${
+            dimUnconnected ? 'text-cyan-400 bg-cyan-500/15' : 'text-slate-400 hover:bg-slate-800'
           }`}
         >
           {dimUnconnected ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
         </button>
       </div>
 
-      {/* Bottom-Left Legend */}
-      <div className="hidden sm:flex absolute bottom-4 left-4 z-20 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-xl px-3.5 py-2 items-center gap-4 text-xs text-slate-600">
+      {/* Bottom-Left Constellation Legend */}
+      <div className="hidden sm:flex absolute bottom-4 left-4 z-20 bg-slate-900/85 backdrop-blur-xl border border-slate-700/70 shadow-lg rounded-2xl px-4 py-2.5 items-center gap-4 text-xs text-slate-300">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-indigo-900 inline-block" />
-          <span className="font-medium">산스(SANS)</span>
+          <span className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_8px_#FBBF24] inline-block" />
+          <span className="font-bold">중심 별 (나 / 산스)</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-md bg-rose-500 inline-block" />
-          <span className="font-medium">16개 클럽 허브</span>
+          <span className="w-3 h-3 rounded-md bg-rose-400 shadow-[0_0_8px_#FB7185] inline-block" />
+          <span className="font-bold">16개 클럽 성단</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-white border-2 border-indigo-600 inline-block" />
-          <span className="font-medium">구성원 (클릭 시 개인 관계도)</span>
+          <span className="w-3 h-3 rounded-full bg-white shadow-[0_0_8px_#38BDF8] inline-block" />
+          <span className="font-bold">산스 구성원 별 (클릭 시 이동)</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-emerald-500 inline-block" />
-          <span className="font-medium">공감 키워드 · 조(1~20조)</span>
+          <span className="w-3 h-3 rounded bg-emerald-400 shadow-[0_0_8px_#34D399] inline-block" />
+          <span className="font-bold">공감 키워드 · 조(1~20조)</span>
         </div>
       </div>
 
-      {/* Main Interactive SVG Canvas */}
+      {/* Main Interactive Constellation SVG */}
       <svg
         ref={svgRef}
         onWheel={handleWheel}
@@ -1130,42 +1076,76 @@ export default function KnowledgeGraph({
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
-          <filter id="node-shadow" x="-25%" y="-25%" width="150%" height="150%">
-            <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#0F172A" floodOpacity="0.10" />
+          {/* Starlight Bloom Glow Filter */}
+          <filter id="star-glow" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
           </filter>
-          <filter id="hero-glow" x="-40%" y="-40%" width="180%" height="180%">
-            <feDropShadow dx="0" dy="6" stdDeviation="12" floodColor="#4F46E5" floodOpacity="0.28" />
+
+          {/* Supernova Hero Glow Filter */}
+          <filter id="supernova-glow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="12" result="blur1" />
+            <feGaussianBlur stdDeviation="4" result="blur2" />
+            <feMerge>
+              <feMergeNode in="blur1" />
+              <feMergeNode in="blur2" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
           </filter>
+
+          {/* Ambient Nebula Gradients */}
+          <radialGradient id="nebula-center" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.16" />
+            <stop offset="55%" stopColor="#6366F1" stopOpacity="0.06" />
+            <stop offset="100%" stopColor="#090E1E" stopOpacity="0" />
+          </radialGradient>
         </defs>
 
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
-          {/* Decorative Concentric Orbit Guides when focused */}
-          {focus.type !== 'ALL' && (
-            <g className="pointer-events-none">
+          {/* ==================== 0. DEEP SPACE STARFIELD & CELESTIAL RINGS ==================== */}
+          <g className="pointer-events-none">
+            <circle cx={0} cy={0} r={520} fill="url(#nebula-center)" />
+
+            {BACKGROUND_STARS.map((st) => (
+              <circle
+                key={st.id}
+                cx={st.x}
+                cy={st.y}
+                r={st.r}
+                fill="#E2E8F0"
+                fillOpacity={st.opacity}
+              />
+            ))}
+
+            {/* Celestial Astrolabe Orbit Rings */}
+            <circle
+              cx={0}
+              cy={0}
+              r={focus.type === 'ALL' ? 265 : personSubMode === 'DIRECT' && focus.type === 'MEMBER' ? 340 : 230}
+              fill="none"
+              stroke="#334155"
+              strokeOpacity={0.55}
+              strokeWidth={1.2}
+              strokeDasharray="5 7"
+            />
+            {!(personSubMode === 'DIRECT' && focus.type === 'MEMBER') && (
               <circle
                 cx={0}
                 cy={0}
-                r={personSubMode === 'DIRECT' && focus.type === 'MEMBER' ? 300 : 220}
+                r={focus.type === 'ALL' ? 500 : 440}
                 fill="none"
-                stroke="#E2E8F0"
-                strokeWidth={1.5}
-                strokeDasharray="6 6"
+                stroke="#1E293B"
+                strokeOpacity={0.75}
+                strokeWidth={1.2}
+                strokeDasharray="3 9"
               />
-              {!(personSubMode === 'DIRECT' && focus.type === 'MEMBER') && (
-                <circle
-                  cx={0}
-                  cy={0}
-                  r={435}
-                  fill="none"
-                  stroke="#E2E8F0"
-                  strokeWidth={1.2}
-                  strokeDasharray="4 8"
-                />
-              )}
-            </g>
-          )}
+            )}
+          </g>
 
-          {/* ==================== 1. CONNECTION LINES (EDGES) ==================== */}
+          {/* ==================== 1. CONSTELLATION CONNECTION LINES ==================== */}
           <g>
             {edges.map((edge) => {
               const s = nodeById.get(edge.source);
@@ -1179,13 +1159,12 @@ export default function KnowledgeGraph({
               const opacity =
                 activeConnectedSet && dimUnconnected
                   ? isHighlighted
-                    ? 0.95
-                    : 0.12
+                    ? 1
+                    : 0.08
                   : edge.isPrimary
-                  ? 0.88
-                  : 0.65;
+                  ? 0.92
+                  : 0.68;
 
-              // Slight curve for elegance and readability
               const dx = t.x - s.x;
               const dy = t.y - s.y;
               const mx = (s.x + t.x) / 2;
@@ -1194,9 +1173,8 @@ export default function KnowledgeGraph({
               const lx = s.x + dx * labelRatio;
               const ly = s.y + dy * labelRatio;
 
-              // Calculate gentle perpendicular curve offset when not radial straight
               const dist = Math.hypot(dx, dy) || 1;
-              const curveOffset = edge.isPrimary ? 0 : Math.min(24, dist * 0.06);
+              const curveOffset = edge.isPrimary ? 0 : Math.min(22, dist * 0.05);
               const cx = mx - (dy / dist) * curveOffset;
               const cy = my + (dx / dist) * curveOffset;
 
@@ -1207,50 +1185,60 @@ export default function KnowledgeGraph({
 
               return (
                 <g key={edge.id} style={{ opacity, transition: 'opacity 200ms ease' }}>
-                  {/* Soft Outer Glow on Primary / Highlighted Lines */}
-                  {(edge.isPrimary || (activeConnectedSet && isHighlighted)) && (
-                    <path
-                      d={pathD}
-                      fill="none"
-                      stroke={edge.color || '#6366F1'}
-                      strokeWidth={(edge.width || 2) + 5}
-                      strokeOpacity={0.16}
-                      strokeLinecap="round"
-                    />
-                  )}
-
-                  {/* Main Crisp Connection Line */}
+                  {/* Layer 1: Wide Starlight Nebula Glow */}
                   <path
                     d={pathD}
                     fill="none"
-                    stroke={edge.color || '#6366F1'}
+                    stroke={edge.color || '#38BDF8'}
+                    strokeWidth={(edge.width || 2) + 5}
+                    strokeOpacity={edge.isPrimary || isHighlighted ? 0.22 : 0.10}
+                    strokeLinecap="round"
+                  />
+
+                  {/* Layer 2: Crisp Constellation Thread */}
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke={edge.color || '#38BDF8'}
                     strokeWidth={
                       activeConnectedSet && isHighlighted
-                        ? (edge.width || 2) + 1.2
+                        ? (edge.width || 2) + 1.0
                         : edge.width || 2
                     }
                     strokeDasharray={edge.dashed ? '6 5' : undefined}
                     strokeLinecap="round"
                   />
 
-                  {/* Edge Midpoint Badge in Direct Connection Mode or Primary Labeled Edges */}
+                  {/* Layer 3: Twinkling Starlight Points along Primary Constellation Lines */}
+                  {edge.isPrimary && (
+                    <circle
+                      cx={mx}
+                      cy={my}
+                      r={2.5}
+                      fill="#FFFFFF"
+                      filter="url(#star-glow)"
+                    />
+                  )}
+
+                  {/* Constellation Edge Label Pill */}
                   {edge.label && (focus.type !== 'ALL' || isHighlighted) && (
                     <g transform={`translate(${lx}, ${ly})`}>
                       <rect
-                        x={-Math.max(38, edge.label.length * 5.8 + (edge.extraCount ? 14 : 0))}
+                        x={-Math.max(40, edge.label.length * 6.0 + (edge.extraCount ? 14 : 0))}
                         y={-11}
-                        width={Math.max(76, edge.label.length * 11.6 + (edge.extraCount ? 28 : 0))}
+                        width={Math.max(80, edge.label.length * 12.0 + (edge.extraCount ? 28 : 0))}
                         height={22}
                         rx={11}
-                        fill="#FFFFFF"
-                        stroke={edge.color || '#6366F1'}
-                        strokeWidth={1.3}
+                        fill="#0F172A"
+                        fillOpacity={0.94}
+                        stroke={edge.color || '#38BDF8'}
+                        strokeWidth={1.5}
                       />
                       <text
                         x={0}
                         y={4}
                         textAnchor="middle"
-                        className="text-[10.5px] font-semibold fill-slate-700 pointer-events-none"
+                        className="text-[10.5px] font-extrabold fill-white pointer-events-none"
                       >
                         {edge.label}
                         {edge.extraCount > 0 ? ` +${edge.extraCount}` : ''}
@@ -1262,92 +1250,109 @@ export default function KnowledgeGraph({
             })}
           </g>
 
-          {/* ==================== 2. GRAPH NODES ==================== */}
+          {/* ==================== 2. CONSTELLATION STAR NODES ==================== */}
           <g>
             {nodesWithDrag.map((node) => {
               const isHovered = hoveredNodeId === node.id;
               const isConnected = !activeConnectedSet || activeConnectedSet.has(node.id);
               const nodeOpacity =
-                activeConnectedSet && dimUnconnected ? (isConnected ? 1 : 0.18) : 1;
+                activeConnectedSet && dimUnconnected ? (isConnected ? 1 : 0.14) : 1;
 
               const isHero =
-                node.nodeType === 'SANS_CORE' ||
-                node.nodeType.endsWith('_HERO');
+                node.nodeType === 'SANS_CORE' || node.nodeType.endsWith('_HERO');
 
               return (
                 <g
                   key={node.id}
                   transform={`translate(${node.x}, ${node.y})`}
-                  style={{
-                    opacity: nodeOpacity,
-                    transition: 'opacity 200ms ease'
-                  }}
+                  style={{ opacity: nodeOpacity, transition: 'opacity 200ms ease' }}
                   onPointerDown={(e) => handleNodePointerDown(e, node)}
                   onClick={(e) => handleNodeClick(e, node)}
                   onPointerEnter={() => setHoveredNodeId(node.id)}
                   onPointerLeave={() => setHoveredNodeId(null)}
-                  className="cursor-pointer group"
+                  className="cursor-pointer"
                 >
-                  {/* Pulse Ring for Center Hero Node */}
-                  {isHero && (
-                    <circle
-                      r={node.radius + 10}
-                      fill="none"
-                      stroke={node.color}
-                      strokeWidth={2}
-                      strokeOpacity={0.28}
-                    />
+                  {/* Outer Corona Halo Ring */}
+                  <circle
+                    r={node.radius + (isHero ? 14 : isHovered ? 9 : 5)}
+                    fill={node.color}
+                    fillOpacity={isHero ? 0.22 : isHovered ? 0.28 : 0.14}
+                    filter={isHero ? 'url(#supernova-glow)' : undefined}
+                  />
+
+                  {/* Diffraction Star Spikes (✦) on Hero Stars and Member Stars */}
+                  {(isHero || node.nodeType === 'MEMBER') && (
+                    <g
+                      stroke={isHero ? '#FFFFFF' : node.color}
+                      strokeOpacity={isHero ? 0.75 : 0.55}
+                      strokeWidth={isHero ? 1.8 : 1.2}
+                      className="pointer-events-none"
+                    >
+                      <line
+                        x1={-(node.radius + (isHero ? 18 : 8))}
+                        y1={0}
+                        x2={node.radius + (isHero ? 18 : 8)}
+                        y2={0}
+                      />
+                      <line
+                        x1={0}
+                        y1={-(node.radius + (isHero ? 18 : 8))}
+                        x2={0}
+                        y2={node.radius + (isHero ? 18 : 8)}
+                      />
+                    </g>
                   )}
 
-                  {/* Node Circle / Badge */}
+                  {/* Node Core Shape */}
                   {node.nodeType === 'CLUB' || node.nodeType === 'CLUB_HERO' ? (
                     <rect
                       x={-node.radius}
                       y={-node.radius}
                       width={node.radius * 2}
                       height={node.radius * 2}
-                      rx={node.nodeType === 'CLUB_HERO' ? 20 : 14}
-                      fill={node.bg || '#FFFFFF'}
+                      rx={node.radius * 0.45}
+                      fill="#0F172A"
                       stroke={node.color}
-                      strokeWidth={isHovered || isHero ? 3.5 : 2.2}
-                      filter={isHero ? 'url(#hero-glow)' : 'url(#node-shadow)'}
+                      strokeWidth={isHovered || isHero ? 3.5 : 2.4}
+                      filter="url(#star-glow)"
                     />
                   ) : node.nodeType === 'KEYWORD' || node.nodeType === 'KEYWORD_HERO' ? (
                     <rect
-                      x={-(node.radius * 1.65)}
+                      x={-(node.radius * 1.75)}
                       y={-(node.radius * 0.72)}
-                      width={node.radius * 3.3}
+                      width={node.radius * 3.5}
                       height={node.radius * 1.44}
                       rx={node.radius * 0.72}
-                      fill={node.bg || '#ECFDF5'}
+                      fill="#0F172A"
                       stroke={node.color}
-                      strokeWidth={isHovered || isHero ? 3 : 2}
-                      filter="url(#node-shadow)"
+                      strokeWidth={isHovered || isHero ? 3.0 : 2.0}
+                      filter="url(#star-glow)"
                     />
                   ) : (
                     <circle
                       r={node.radius}
-                      fill={
-                        node.nodeType === 'SANS_CORE'
-                          ? '#312E81'
-                          : node.nodeType === 'MEMBER_HERO'
-                          ? '#4F46E5'
-                          : node.nodeType === 'TEAM_HERO'
-                          ? '#4338CA'
-                          : node.bg || '#FFFFFF'
-                      }
-                      stroke={node.color}
-                      strokeWidth={isHovered || isHero ? 3.8 : 2.6}
-                      filter={isHero ? 'url(#hero-glow)' : 'url(#node-shadow)'}
+                      fill={isHero ? node.color : '#0F172A'}
+                      stroke={isHero ? '#FFFFFF' : node.color}
+                      strokeWidth={isHovered || isHero ? 3.6 : 2.4}
+                      filter={isHero ? 'url(#supernova-glow)' : 'url(#star-glow)'}
                     />
                   )}
 
-                  {/* Center Icon or Avatar Initial inside Node */}
+                  {/* Bright Inner Star Core Dot for Member Stars */}
+                  {node.nodeType === 'MEMBER' && (
+                    <circle
+                      r={node.radius - 4}
+                      fill="#1E293B"
+                      className="pointer-events-none"
+                    />
+                  )}
+
+                  {/* Center Icon or Text Inside Star */}
                   {node.nodeType === 'SANS_CORE' && (
                     <text
-                      y={5}
+                      y={6}
                       textAnchor="middle"
-                      className="text-[16px] font-extrabold fill-white tracking-tight pointer-events-none"
+                      className="text-[17px] font-black fill-slate-950 tracking-tight pointer-events-none"
                     >
                       SANS
                     </text>
@@ -1377,8 +1382,8 @@ export default function KnowledgeGraph({
                       textAnchor="middle"
                       className={`font-extrabold pointer-events-none ${
                         node.nodeType === 'TEAM_HERO'
-                          ? 'text-[16px] fill-white'
-                          : 'text-[13px] fill-indigo-800'
+                          ? 'text-[16px] fill-slate-950'
+                          : 'text-[12.5px] fill-indigo-300'
                       }`}
                     >
                       {node.key}
@@ -1389,8 +1394,8 @@ export default function KnowledgeGraph({
                     <text
                       y={4}
                       textAnchor="middle"
-                      style={{ fill: node.color }}
-                      className="text-[11.5px] font-bold pointer-events-none"
+                      style={{ fill: node.nodeType === 'KEYWORD_HERO' ? '#0F172A' : node.color }}
+                      className="text-[11.5px] font-extrabold pointer-events-none"
                     >
                       {node.label}
                     </text>
@@ -1398,31 +1403,19 @@ export default function KnowledgeGraph({
 
                   {(node.nodeType === 'MEMBER' || node.nodeType === 'MEMBER_HERO') && (
                     <text
-                      y={5}
+                      y={4.5}
                       textAnchor="middle"
-                      className={`font-bold pointer-events-none ${
+                      className={`font-extrabold pointer-events-none ${
                         node.nodeType === 'MEMBER_HERO'
-                          ? 'text-[15px] fill-white'
-                          : 'text-[13px] fill-slate-800'
+                          ? 'text-[15px] fill-slate-950'
+                          : 'text-[12px] fill-white'
                       }`}
                     >
                       {node.label.slice(0, 3)}
                     </text>
                   )}
 
-                  {/* Live Joined Badge Indicator */}
-                  {node.member?.isLiveJoined && (
-                    <circle
-                      cx={node.radius * 0.72}
-                      cy={-node.radius * 0.72}
-                      r={6}
-                      fill="#10B981"
-                      stroke="#FFFFFF"
-                      strokeWidth={2}
-                    />
-                  )}
-
-                  {/* Node Label Pill Below Circle (For non-keyword nodes) */}
+                  {/* Constellation Nameplate Label Below Star */}
                   {node.nodeType !== 'KEYWORD' && (
                     <g transform={`translate(0, ${node.radius + 16})`}>
                       <rect
@@ -1431,29 +1424,28 @@ export default function KnowledgeGraph({
                         width={Math.max(84, node.label.length * 14.4 + 24)}
                         height={24}
                         rx={8}
-                        fill={isHero ? '#1E1B4B' : '#FFFFFF'}
-                        fillOpacity={0.96}
-                        stroke={isHero ? node.color : '#E2E8F0'}
-                        strokeWidth={1.2}
+                        fill={isHero ? '#FBBF24' : '#0F172A'}
+                        fillOpacity={0.94}
+                        stroke={isHero ? '#FEF08A' : node.color}
+                        strokeWidth={isHero ? 1.8 : 1.2}
                       />
                       <text
                         x={0}
                         y={4}
                         textAnchor="middle"
-                        className={`text-[12px] font-bold pointer-events-none ${
-                          isHero ? 'fill-white' : 'fill-slate-900'
+                        className={`text-[12px] font-extrabold pointer-events-none ${
+                          isHero ? 'fill-slate-950' : 'fill-white'
                         }`}
                       >
                         {node.label}
                       </text>
 
-                      {/* Sub-label or Shared Connection Badges under Member Nodes */}
                       {node.subLabel && isHero && (
                         <text
                           x={0}
-                          y={22}
+                          y={23}
                           textAnchor="middle"
-                          className="text-[11px] font-semibold fill-indigo-600 pointer-events-none"
+                          className="text-[11px] font-extrabold fill-cyan-300 pointer-events-none"
                         >
                           {node.subLabel}
                         </text>
@@ -1462,19 +1454,22 @@ export default function KnowledgeGraph({
                       {node.sharedBadges && node.sharedBadges.length > 0 && !isHero && (
                         <g transform="translate(0, 19)">
                           <rect
-                            x={-54}
+                            x={-55}
                             y={-9}
-                            width={108}
+                            width={110}
                             height={18}
                             rx={9}
-                            fill={node.sharedBadges[0].bg || '#EEF2FF'}
+                            fill="#1E293B"
+                            stroke={node.sharedBadges[0].color || '#38BDF8'}
+                            strokeOpacity={0.5}
+                            strokeWidth={1}
                           />
                           <text
                             x={0}
                             y={3.5}
                             textAnchor="middle"
-                            style={{ fill: node.sharedBadges[0].color || '#4F46E5' }}
-                            className="text-[10px] font-bold pointer-events-none"
+                            style={{ fill: node.sharedBadges[0].color || '#38BDF8' }}
+                            className="text-[10px] font-extrabold pointer-events-none"
                           >
                             {node.sharedBadges
                               .slice(0, 2)

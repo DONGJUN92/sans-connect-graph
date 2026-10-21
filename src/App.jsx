@@ -39,22 +39,14 @@ export default function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchContainerRef = useRef(null);
 
-  // Modals state
-  const [isJoinOpen, setIsJoinOpen] = useState(false);
+  // Modals state (Default to true so the very first landing screen is the Name/Team/Club/Keyword selection screen!)
+  const [isJoinOpen, setIsJoinOpen] = useState(true);
   const [editInitialName, setEditInitialName] = useState('');
   const [isQrOpen, setIsQrOpen] = useState(false);
 
   // Live toast notification
   const [toast, setToast] = useState(null);
   const knownEventIdsRef = useRef(new Set(events.map((e) => e.id)));
-
-  // Auto-open Join Modal if accessed via ?join=1 (QR scan)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('join') === '1') {
-      setIsJoinOpen(true);
-    }
-  }, []);
 
   // Close search dropdown when clicking outside
   useEffect(() => {
@@ -496,6 +488,10 @@ export default function App() {
         onClose={() => setIsJoinOpen(false)}
         members={members}
         onSubmitMember={handleSubmitMember}
+        onQuickViewMember={(memberName) => {
+          setFocus({ type: 'MEMBER', id: memberName });
+          setSearchQuery(memberName);
+        }}
         initialName={editInitialName}
       />
 

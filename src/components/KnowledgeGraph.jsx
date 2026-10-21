@@ -853,6 +853,26 @@ function computeAutoFitScale(nodes) {
   return { x: 0, y: 0, k };
 }
 
+function getNodeAriaLabel(node) {
+  if (node.nodeType === 'SANS_CORE') {
+    return '산스 이동훈 대표님. 전체 16개 클럽과 모든 조에 연결되어 있습니다. 누르면 대표님의 연결을 봅니다.';
+  }
+  if (node.nodeType === 'MEMBER_HERO' || node.nodeType === 'MEMBER') {
+    const team = node.member?.team || node.subLabel || '';
+    return `${node.label}님, 소속: ${team}. 누르면 ${node.label}님의 연결을 봅니다.`;
+  }
+  if (node.nodeType === 'CLUB' || node.nodeType === 'CLUB_HERO') {
+    return `${node.fullName || node.label}. 누르면 이 클럽의 연결을 봅니다.`;
+  }
+  if (node.nodeType === 'TEAM' || node.nodeType === 'TEAM_HERO') {
+    return `산스 ${node.key}. 누르면 이 조의 연결을 봅니다.`;
+  }
+  if (node.nodeType === 'KEYWORD' || node.nodeType === 'KEYWORD_HERO') {
+    return `${node.label} 키워드. 누르면 이 마음을 함께 나눈 분들을 봅니다.`;
+  }
+  return `${node.label}`;
+}
+
 export default function KnowledgeGraph({
   members,
   focus,
@@ -885,17 +905,17 @@ export default function KnowledgeGraph({
     }
     if (focus.type === 'CLUB') {
       const clubMembers = members.filter((m) => m.clubs.includes(focus.id));
-      return `${focus.id} 중심 연결망입니다. 총 ${clubMembers.length}명의 구성원(${clubMembers
+      return `${focus.id}에는 총 ${clubMembers.length}명(${clubMembers
         .map((m) => m.name)
-        .join(', ')})이 연결되어 있습니다.`;
+        .join(', ')})이 함께하고 있습니다.`;
     }
     if (focus.type === 'TEAM') {
       const teamMembers = members.filter((m) => m.team === focus.id || m.allTeams);
-      return `산스 ${focus.id} 중심 연결망입니다. 소속 구성원 ${teamMembers.length}명(${teamMembers
+      return `${focus.id}에는 총 ${teamMembers.length}명(${teamMembers
         .map((m) => m.name)
-        .join(', ')})이 연결되어 있습니다.`;
+        .join(', ')})이 함께하고 있습니다.`;
     }
-    return `산스 전체 연결망입니다. 중심에 이동훈 대표님이 위치하며, 16개 클럽과 총 ${members.length}명의 산스 구성원이 하나로 연결되어 있습니다.`;
+    return `산스 전체 연결 화면입니다. 중심에 이동훈 대표님이 계시며, 16개 클럽과 총 ${members.length}명의 산스 식구들이 하나로 연결되어 있습니다.`;
   }, [focus, members]);
 
   // Auto-fit camera scale based on node bounding box so small/medium/large graphs all fill the viewport!
@@ -1032,19 +1052,19 @@ export default function KnowledgeGraph({
         <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-lg rounded-2xl px-4 py-2 flex items-center gap-2.5">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#FBBF24] animate-pulse" />
           <div className="text-xs sm:text-sm font-extrabold text-white">
-            {focus.type === 'ALL' && '👑 이동훈 대표님 · 산스(SANS) 전체 연결망'}
-            {focus.type === 'MEMBER' && `✨ [${focus.id}]님의 산스 연결망`}
-            {focus.type === 'CLUB' && `🏛️ [${focus.id}] 중심 연결망`}
-            {focus.type === 'TEAM' && `🚩 [산스 ${focus.id}] 중심 연결망`}
-            {focus.type === 'KEYWORD' && `🏷️ [${focus.id}] 공감 연결망`}
+            {focus.type === 'ALL' && '👑 이동훈 대표님과 산스 전체 연결'}
+            {focus.type === 'MEMBER' && `✨ ${focus.id}님과 연결된 분들`}
+            {focus.type === 'CLUB' && `🏛️ ${focus.id} 함께하는 분들`}
+            {focus.type === 'TEAM' && `🚩 ${focus.id} 함께하는 분들`}
+            {focus.type === 'KEYWORD' && `🏷️ ${focus.id} 마음이 통하는 분들`}
           </div>
           {focus.type !== 'ALL' && (
             <button
               onClick={() => onSelectFocus({ type: 'ALL', id: null })}
-              aria-label="전체 산스 연결망 보기로 돌아가기"
+              aria-label="전체 산스 연결 화면으로 돌아가기"
               className="ml-1 text-xs font-extrabold text-amber-300 hover:text-white bg-amber-400/20 hover:bg-amber-400/35 border border-amber-400/40 px-3 py-1 rounded-xl transition focus-visible:ring-4 focus-visible:ring-amber-400"
             >
-              전체 연결망 보기
+              전체 보기
             </button>
           )}
         </div>
@@ -1053,17 +1073,17 @@ export default function KnowledgeGraph({
         <button
           type="button"
           onClick={() => speakKorean(screenReaderSummary, true)}
-          aria-label="현재 화면의 연결 관계를 음성으로 듣기"
+          aria-label="현재 연결된 내용을 음성으로 듣기"
           className="bg-slate-900/90 hover:bg-slate-800 backdrop-blur-xl border border-amber-400/50 text-amber-300 shadow-lg rounded-2xl px-3.5 py-2 text-xs font-extrabold flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
         >
           <Volume2 className="w-4 h-4 text-amber-400" aria-hidden="true" />
-          <span className="hidden sm:inline">현재 연결 음성 듣기</span>
+          <span className="hidden sm:inline">음성으로 듣기</span>
         </button>
 
         {focus.type === 'MEMBER' && focus.id !== '이동훈 대표님' && (
           <div
             role="group"
-            aria-label="개인 연결망 표시 방식 선택"
+            aria-label="연결 방식 선택"
             className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-lg rounded-2xl p-1 flex items-center gap-1"
           >
             <button
@@ -1076,7 +1096,7 @@ export default function KnowledgeGraph({
               }`}
             >
               <Network className="w-3.5 h-3.5" aria-hidden="true" />
-              다중 연결 허브 뷰
+              공통점별로 보기
             </button>
             <button
               onClick={() => onChangePersonSubMode('DIRECT')}
@@ -1088,7 +1108,7 @@ export default function KnowledgeGraph({
               }`}
             >
               <GitCommitHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
-              1:1 직통 연결선 뷰
+              사람끼리 바로 보기
             </button>
           </div>
         )}
@@ -1140,7 +1160,8 @@ export default function KnowledgeGraph({
         onPointerMove={handlePointerMoveCanvas}
         onPointerUp={handlePointerUpCanvas}
         onPointerLeave={handlePointerUpCanvas}
-        aria-hidden="true"
+        role="region"
+        aria-label="산스 구성원 연결 지도"
         className="w-full h-full cursor-grab active:cursor-grabbing"
         viewBox="-620 -430 1240 860"
         preserveAspectRatio="xMidYMid meet"
@@ -1318,13 +1339,22 @@ export default function KnowledgeGraph({
               return (
                 <g
                   key={node.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={getNodeAriaLabel(node)}
                   transform={`translate(${node.x}, ${node.y})`}
                   style={{ opacity: nodeOpacity, transition: 'opacity 200ms ease' }}
                   onPointerDown={(e) => handleNodePointerDown(e, node)}
                   onClick={(e) => handleNodeClick(e, node)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleNodeClick(e, node);
+                    }
+                  }}
                   onPointerEnter={() => setHoveredNodeId(node.id)}
                   onPointerLeave={() => setHoveredNodeId(null)}
-                  className="cursor-pointer"
+                  className="cursor-pointer outline-none"
                 >
                   {/* Real-Time New Arrival Ripple Shockwaves */}
                   {isNewlyJoined && (

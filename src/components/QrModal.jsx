@@ -36,12 +36,10 @@ export default function QrModal({ isOpen, onClose, memberCount }) {
 
         <div>
           <h3 className="text-xl font-extrabold text-slate-900">
-            QR로 산스 연결 그래프에 참여하세요
+            QR로 산스 연결에 함께하세요
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            카메라로 스캔 후 이름·조·클럽·키워드를 선택하면
-            <br />
-            스크린과 모든 스마트폰에 실시간으로 연결선이 이어집니다.
+            스마트폰 카메라로 QR을 비추면 바로 내 이름을 입력하고 연결될 수 있어요.
           </p>
         </div>
 

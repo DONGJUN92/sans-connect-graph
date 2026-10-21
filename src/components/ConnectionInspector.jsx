@@ -1,7 +1,7 @@
 import React from 'react';
 import { SANS_CLUBS } from '../data/sansData';
 import ClubIcon from './ClubIcon';
-import { Edit3, ArrowRight, Network, Volume2, X, ChevronRight } from 'lucide-react';
+import { Edit3, ArrowRight, Network, Volume2, X } from 'lucide-react';
 import { buildMemberConnectionSummaryText, speakKorean } from '../utils/a11yVoice';
 
 export default function ConnectionInspector({
@@ -20,11 +20,11 @@ export default function ConnectionInspector({
       <button
         type="button"
         onClick={onToggleOpen}
-        aria-label="연결 상세 정보 패널 펼치기"
+        aria-label="연결된 사람들 목록 열기"
         className="fixed top-16 right-4 z-30 px-4 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 border border-slate-700 text-white text-xs sm:text-sm font-extrabold shadow-xl flex items-center gap-2 transition focus-visible:ring-4 focus-visible:ring-amber-400"
       >
         <Network className="w-4 h-4 text-amber-400" />
-        <span>상세 연결 목록 열기</span>
+        <span>연결된 사람들 보기</span>
       </button>
     );
   }
@@ -64,7 +64,7 @@ export default function ConnectionInspector({
 
     return (
       <aside
-        aria-label={`${person.name}님의 연결 상세 목록`}
+        aria-label={`${person.name}님의 연결 상세 정보`}
         className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
       >
         {/* Person Header Card */}
@@ -75,16 +75,16 @@ export default function ConnectionInspector({
                 {person.isRepresentative ? '👑 산스 대표 (전체 조·클럽)' : `산스 ${person.team}`}
               </span>
               <h2 className="text-lg sm:text-xl font-extrabold tracking-tight">
-                ✨ {person.name}님의 연결망
+                ✨ {person.name}님의 연결
               </h2>
               <p className="text-xs text-blue-100 mt-0.5">
-                총 <strong className="text-amber-300 text-sm">{uniqueConnectedNames.size}명</strong>의 산스 구성원과 연결됨
+                총 <strong className="text-amber-300 text-sm">{uniqueConnectedNames.size}명</strong>의 산스 식구와 연결
               </p>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => onOpenEditMember(person.name)}
-                aria-label={`${person.name}님의 정보 수정`}
+                aria-label={`${person.name}님의 정보 수정하기`}
                 className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-xs font-extrabold flex items-center gap-1 transition"
               >
                 <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -92,8 +92,8 @@ export default function ConnectionInspector({
               </button>
               <button
                 onClick={onToggleOpen}
-                aria-label="상세 정보 패널 접기"
-                title="패널 접기"
+                aria-label="상세 목록 닫기"
+                title="닫기"
                 className="p-1.5 rounded-xl bg-white/10 hover:bg-white/25 text-white transition"
               >
                 <X className="w-4 h-4" />
@@ -104,11 +104,11 @@ export default function ConnectionInspector({
           <button
             type="button"
             onClick={() => speakKorean(speechText, true)}
-            aria-label={`${person.name}님과 연결된 구성원 목록을 음성으로 듣기`}
-            className="w-full py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-sm transition"
+            aria-label={`${person.name}님의 연결 관계를 음성으로 듣기`}
+            className="w-full py-2.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 shadow-sm transition"
           >
-            <Volume2 className="w-4 h-4" aria-hidden="true" />
-            <span>내 연결 관계 음성으로 듣기</span>
+            <Volume2 className="w-4 h-4 aria-hidden=true" />
+            <span>🔊 음성으로 듣기</span>
           </button>
 
           <div className="flex flex-wrap gap-1.5 pt-0.5 max-h-20 overflow-y-auto">
@@ -128,7 +128,7 @@ export default function ConnectionInspector({
         <div className="p-4 space-y-4 flex-1 overflow-y-auto">
           <section className="space-y-2">
             <h3 className="text-xs font-extrabold text-slate-300">
-              🏛️ 같은 클럽으로 연결된 동료 ({clubMates.length}명)
+              🏛️ 함께하는 클럽 ({clubMates.length}명)
             </h3>
             <div className="space-y-1.5">
               {clubMates.map(({ other, sharedClubs }) => (
@@ -177,7 +177,7 @@ export default function ConnectionInspector({
           <section className="space-y-2">
             <div className="flex items-center justify-between text-xs font-extrabold text-slate-300">
               <h3>
-                🚩 같은 조({person.team}) 동료 ({teamMates.length}명)
+                🚩 같은 {person.team} 식구 ({teamMates.length}명)
               </h3>
               {!person.allTeams && (
                 <button
@@ -204,7 +204,7 @@ export default function ConnectionInspector({
 
           <section className="space-y-2">
             <h3 className="text-xs font-extrabold text-slate-300">
-              🤝 같은 키워드 공감 동료 ({keywordMates.length}명)
+              🤝 마음이 통한 분들 ({keywordMates.length}명)
             </h3>
             <div className="space-y-1.5">
               {keywordMates.map(({ other, sharedKeywords }) => (
@@ -249,7 +249,7 @@ export default function ConnectionInspector({
 
     return (
       <aside
-        aria-label={`${club.name} 연결 상세 목록`}
+        aria-label={`${club.name} 함께하는 분들 목록`}
         className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
       >
         <div className="p-4 sm:p-5 bg-slate-800/95 border-b border-slate-700 space-y-2 shrink-0">
@@ -264,13 +264,13 @@ export default function ConnectionInspector({
               <div>
                 <h2 className="text-lg font-extrabold text-white">{club.name}</h2>
                 <p className="text-xs font-bold text-cyan-400">
-                  활동 구성원 {clubMembers.length}명
+                  활동 인원 {clubMembers.length}명
                 </p>
               </div>
             </div>
             <button
               onClick={onToggleOpen}
-              aria-label="패널 접기"
+              aria-label="목록 닫기"
               className="p-1.5 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-white transition"
             >
               <X className="w-4 h-4" />
@@ -281,7 +281,7 @@ export default function ConnectionInspector({
 
         <div className="p-4 space-y-2.5 flex-1 overflow-y-auto">
           <h3 className="text-xs font-extrabold text-slate-300">
-            👥 소속 구성원 ({clubMembers.length}명) — 클릭 시 개인 연결망
+            👥 함께하는 분들 ({clubMembers.length}명)
           </h3>
           {clubMembers.map((m) => (
             <button
@@ -320,22 +320,22 @@ export default function ConnectionInspector({
     const teamMembers = members.filter((m) => m.team === focus.id || m.allTeams);
     return (
       <aside
-        aria-label={`산스 ${focus.id} 연결 상세 목록`}
+        aria-label={`${focus.id} 함께하는 분들 목록`}
         className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
       >
         <div className="p-4 sm:p-5 bg-gradient-to-r from-indigo-900 to-slate-900 border-b border-slate-800 flex items-start justify-between gap-2 shrink-0">
           <div>
-            <span className="text-[11px] font-extrabold text-cyan-400 uppercase tracking-wider">
-              SANS TEAM NETWORK
+            <span className="text-[11px] font-extrabold text-cyan-400 tracking-wider">
+              산스 조별 연결
             </span>
-            <h2 className="text-xl font-extrabold">산스 {focus.id} 연결망</h2>
+            <h2 className="text-xl font-extrabold">{focus.id} 함께하는 분들</h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              소속 구성원 {teamMembers.length}명 연결됨
+              총 {teamMembers.length}명 활동 중
             </p>
           </div>
           <button
             onClick={onToggleOpen}
-            aria-label="패널 접기"
+            aria-label="목록 닫기"
             className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition"
           >
             <X className="w-4 h-4" />
@@ -364,7 +364,7 @@ export default function ConnectionInspector({
                 ))}
                 {m.clubs.length > 4 && (
                   <span className="text-[11px] text-slate-400 font-bold">
-                    외 {m.clubs.length - 4}개 클럽
+                    외 {m.clubs.length - 4}개
                   </span>
                 )}
               </div>
@@ -378,22 +378,22 @@ export default function ConnectionInspector({
   // 4. Overview Drawer (when manually opened in ALL or KEYWORD mode)
   return (
     <aside
-      aria-label="산스 16개 클럽 및 구성원 탐색 패널"
+      aria-label="산스 16개 클럽 둘러보기"
       className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
     >
       <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-sm font-extrabold text-white flex items-center gap-1.5">
             <Network className="w-4 h-4 text-amber-400" />
-            산스 16개 클럽 연결 탐색
+            산스 16개 클럽 둘러보기
           </h2>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            클럽을 누르면 해당 클럽 중심 연결망으로 전환됩니다.
+            클럽을 누르면 함께하는 분들이 보여요.
           </p>
         </div>
         <button
           onClick={onToggleOpen}
-          aria-label="패널 닫기"
+          aria-label="목록 닫기"
           className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
         >
           <X className="w-4 h-4" />

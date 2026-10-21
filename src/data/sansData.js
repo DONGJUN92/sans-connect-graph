@@ -283,8 +283,26 @@ export const KEYWORD_CATEGORIES = [
 
 export const ALL_KEYWORDS = KEYWORD_CATEGORIES.flatMap(c => c.keywords);
 
-// Initial Seed Members (신동준 + 22 members from the 16 clubs screenshot)
+// Initial Seed Members (이동훈 대표님 + 신동준 + 22 members from the 16 clubs screenshot)
 export const INITIAL_MEMBERS = [
+  {
+    id: 'member-이동훈 대표님',
+    name: '이동훈 대표님',
+    team: '전체 조',
+    allTeams: true,
+    isRepresentative: true,
+    clubs: SANS_CLUBS.map((c) => c.name),
+    keywords: [
+      '#든든한버팀목',
+      '#함께걷는동료',
+      '#성장의자극제',
+      '#따뜻한시선',
+      '#산스최고의만남',
+      '#오래함께해요'
+    ],
+    isSeed: true,
+    updatedAt: 1700000000000
+  },
   {
     id: 'member-신동준',
     name: '신동준',

@@ -29,7 +29,8 @@ import {
   ChevronDown,
   Network,
   Volume2,
-  VolumeX
+  VolumeX,
+  Compass
 } from 'lucide-react';
 
 export default function App() {
@@ -40,7 +41,14 @@ export default function App() {
   const [focus, setFocus] = useState({ type: 'ALL', id: null });
   const [personSubMode, setPersonSubMode] = useState('HUB');
 
-  // Accessibility Voice Guide Mode for visually impaired members
+  // Floating Inspector open state (Closed by default in ALL mode so graph is 100% unobstructed!)
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+
+  // Compact Filter Popover state (replaces the cluttered 2-row top bar!)
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const filterDrawerRef = useRef(null);
+
+  // Accessibility Voice Guide Mode
   const [voiceEnabled, setVoiceEnabled] = useState(false);
 
   // Search bar state
@@ -53,11 +61,25 @@ export default function App() {
   const [editInitialName, setEditInitialName] = useState('');
   const [isQrOpen, setIsQrOpen] = useState(false);
 
-  // Real-time newly joined member tracking (for shockwave & flowing line animations)
+  // Real-time newly joined member tracking
   const [toast, setToast] = useState(null);
   const [newlyJoinedNames, setNewlyJoinedNames] = useState(() => new Set());
   const knownEventIdsRef = useRef(new Set(events.map((e) => e.id)));
   const initialLoadDoneRef = useRef(false);
+
+  const handleSelectFocus = (nextFocus) => {
+    setFocus(nextFocus);
+    setIsFilterDrawerOpen(false);
+    if (nextFocus.type === 'ALL') {
+      setSearchQuery('');
+      setIsInspectorOpen(false);
+    } else {
+      if (nextFocus.type === 'MEMBER') {
+        setSearchQuery(nextFocus.id);
+      }
+      setIsInspectorOpen(true);
+    }
+  };
 
   const registerNewLiveArrival = (memberObj) => {
     if (!memberObj || !memberObj.name) return;
@@ -77,12 +99,13 @@ export default function App() {
 
     playConnectionChime();
     speakKorean(
-      `실시간 연결 알림. 방금 ${memberObj.team || ''} ${cleanName}님이 ${
-        (memberObj.clubs || []).slice(0, 2).join(', ')
-      }으로 새롭게 연결되었습니다.`
+      `실시간 연결 알림. 방금 ${memberObj.team || ''} ${cleanName}님이 ${(
+        memberObj.clubs || []
+      )
+        .slice(0, 2)
+        .join(', ')}으로 새롭게 연결되었습니다.`
     );
 
-    // Keep the newly arrived star glowing & pulsing for 12 seconds
     setTimeout(() => {
       setNewlyJoinedNames((prev) => {
         const next = new Set(prev);
@@ -106,7 +129,6 @@ export default function App() {
     });
   };
 
-  // Speak summary when focus changes if voice mode is active
   useEffect(() => {
     if (!voiceEnabled || isJoinOpen) return;
     if (focus.type === 'MEMBER') {
@@ -122,13 +144,13 @@ export default function App() {
           .join(', ')}님이 연결되어 있습니다.`
       );
     } else if (focus.type === 'TEAM') {
-      const teamMembers = members.filter((m) => m.team === focus.id);
+      const teamMembers = members.filter((m) => m.team === focus.id || m.allTeams);
       speakKorean(
         `산스 ${focus.id} 중심 연결망입니다. 총 ${teamMembers.length}명의 구성원이 연결되어 있습니다.`
       );
     } else if (focus.type === 'ALL') {
       speakKorean(
-        `산스 전체 연결망입니다. 16개 클럽과 총 ${members.length}명의 구성원이 연결되어 있습니다.`
+        `산스 전체 연결망입니다. 중심에 이동훈 대표님이 위치하며 16개 클럽과 총 ${members.length}명의 구성원이 연결되어 있습니다.`
       );
     }
   }, [focus.type, focus.id, voiceEnabled, isJoinOpen]);
@@ -137,6 +159,9 @@ export default function App() {
     const handleClickOutside = (e) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
         setIsSearchOpen(false);
+      }
+      if (filterDrawerRef.current && !filterDrawerRef.current.contains(e.target)) {
+        setIsFilterDrawerOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -204,13 +229,12 @@ export default function App() {
         m.name.toLowerCase().includes(q) ||
         (m.team && m.team.toLowerCase().includes(q)) ||
         m.clubs.some((c) => c.toLowerCase().includes(q)) ||
-        m.keywords.some((k) => k.toLowerCase().includes(k))
+        m.keywords.some((k) => k.toLowerCase().includes(q))
     );
   }, [members, searchQuery]);
 
   const handleSelectMemberFromSearch = (memberName) => {
-    setFocus({ type: 'MEMBER', id: memberName });
-    setSearchQuery(memberName);
+    handleSelectFocus({ type: 'MEMBER', id: memberName });
     setIsSearchOpen(false);
   };
 
@@ -225,8 +249,7 @@ export default function App() {
       saveLocalEvents(next);
       return next;
     });
-    setFocus({ type: 'MEMBER', id: memberData.name });
-    setSearchQuery(memberData.name);
+    handleSelectFocus({ type: 'MEMBER', id: memberData.name });
     registerNewLiveArrival(memberData);
   };
 
@@ -257,7 +280,7 @@ export default function App() {
           </div>
           <button
             onClick={() => {
-              setFocus({ type: 'MEMBER', id: toast.name });
+              handleSelectFocus({ type: 'MEMBER', id: toast.name });
               setToast(null);
             }}
             className="px-3 py-1 rounded-xl bg-slate-950/70 hover:bg-slate-950 text-amber-300 text-xs font-extrabold shrink-0"
@@ -267,40 +290,148 @@ export default function App() {
         </div>
       )}
 
-      {/* ==================== 1. TOP NAVIGATION HEADER ==================== */}
-      <header className="bg-slate-900/95 border-b border-slate-800 px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2.5 shrink-0 z-30">
-        {/* Brand Logo & Title */}
-        <div
-          onClick={() => {
-            setFocus({ type: 'ALL', id: null });
-            setSearchQuery('');
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label="산스 커넥트 홈, 전체 연결망 보기"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              setFocus({ type: 'ALL', id: null });
-              setSearchQuery('');
-            }
-          }}
-          className="flex items-center gap-2.5 cursor-pointer group shrink-0 focus-visible:ring-2 focus-visible:ring-amber-400 rounded-xl"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-600 to-violet-700 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 group-hover:scale-105 transition">
-            <Network className="w-5 h-5 text-amber-300" aria-hidden="true" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
-                SANS Connect
-              </h1>
-              <span className="hidden md:inline-block px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-blue-500/20 text-cyan-300 border border-cyan-400/30">
-                산스 연결의 힘
-              </span>
+      {/* ==================== 1. SINGLE MINIMAL TOP HEADER BAR ==================== */}
+      <header className="bg-slate-900/95 border-b border-slate-800 px-3 sm:px-5 py-2 flex items-center justify-between gap-2.5 shrink-0 z-40">
+        {/* Left: Brand Logo + Quick Filter Popover Trigger */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => handleSelectFocus({ type: 'ALL', id: null })}
+            aria-label="산스 커넥트 홈, 전체 연결망 보기"
+            className="flex items-center gap-2 cursor-pointer group focus-visible:ring-2 focus-visible:ring-amber-400 rounded-xl pr-1"
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 flex items-center justify-center text-slate-950 shadow-md group-hover:scale-105 transition">
+              <Network className="w-5 h-5" aria-hidden="true" />
             </div>
-            <p className="hidden sm:block text-[11px] text-slate-400">
-              이름이나 클럽을 선택하면 나와 연결된 산스 구성원 관계도가 펼쳐집니다
-            </p>
+            <div className="text-left hidden sm:block">
+              <div className="text-sm font-extrabold text-white leading-tight">
+                SANS Connect
+              </div>
+              <div className="text-[10.5px] font-bold text-amber-300">
+                산스 연결망 ({members.length}명)
+              </div>
+            </div>
+          </button>
+
+          {/* Compact Popover Drawer for Clubs, Teams (1~20조) & Members */}
+          <div ref={filterDrawerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsFilterDrawerOpen((v) => !v)}
+              aria-expanded={isFilterDrawerOpen}
+              className={`px-3 py-2 rounded-xl text-xs font-extrabold border flex items-center gap-1.5 transition ${
+                isFilterDrawerOpen
+                  ? 'bg-blue-600 text-white border-blue-400'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
+            >
+              <Compass className="w-4 h-4 text-cyan-400" />
+              <span>클럽 · 조 · 구성원 선택</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {isFilterDrawerOpen && (
+              <div className="absolute left-0 mt-2 w-[340px] sm:w-[540px] max-h-[80vh] overflow-y-auto bg-slate-900/98 backdrop-blur-2xl border border-slate-700 rounded-3xl shadow-2xl p-4 sm:p-5 z-50 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                  <span className="text-sm font-extrabold text-white">
+                    🧭 보고 싶은 연결망 중심을 선택하세요
+                  </span>
+                  <button
+                    onClick={() => setIsFilterDrawerOpen(false)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* 1. Core Representative & Presenter Quick Buttons */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleSelectFocus({ type: 'ALL', id: null })}
+                    className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold"
+                  >
+                    👑 이동훈 대표님 · 산스 전체 연결망
+                  </button>
+                  <button
+                    onClick={() => handleSelectFocus({ type: 'MEMBER', id: '신동준' })}
+                    className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold"
+                  >
+                    ⭐ 신동준 (5조) 연결망
+                  </button>
+                </div>
+
+                {/* 2. 16 Clubs Grid */}
+                <div className="space-y-2">
+                  <div className="text-xs font-extrabold text-slate-400">
+                    🏛️ 16개 클럽별 연결망 보기
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {SANS_CLUBS.map((club) => {
+                      const count = members.filter((m) => m.clubs.includes(club.name)).length;
+                      return (
+                        <button
+                          key={club.id}
+                          onClick={() => handleSelectFocus({ type: 'CLUB', id: club.name })}
+                          className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left flex items-center gap-2 transition"
+                        >
+                          <ClubIcon
+                            name={club.icon}
+                            className="w-4 h-4 shrink-0"
+                            style={{ color: club.color }}
+                          />
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">
+                              {club.shortName}
+                            </div>
+                            <div className="text-[10px] text-cyan-400 font-bold">
+                              {count}명
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Teams 1조 ~ 20조 */}
+                <div className="space-y-2">
+                  <div className="text-xs font-extrabold text-slate-400">
+                    🚩 조별 연결망 보기 (1조 ~ 20조)
+                  </div>
+                  <div className="grid grid-cols-5 sm:grid-cols-10 gap-1.5">
+                    {SANS_TEAMS.map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => handleSelectFocus({ type: 'TEAM', id: t })}
+                        className="py-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white text-xs font-bold border border-slate-700 transition"
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. All Members */}
+                <div className="space-y-2">
+                  <div className="text-xs font-extrabold text-slate-400">
+                    👤 구성원 개인 연결망 바로가기 ({members.length}명)
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                    {members.map((m) => (
+                      <button
+                        key={m.name}
+                        onClick={() => handleSelectFocus({ type: 'MEMBER', id: m.name })}
+                        className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-blue-600 text-xs font-bold text-white border border-slate-700 transition"
+                      >
+                        {m.isRepresentative ? '👑 ' : ''}
+                        {m.name}{' '}
+                        <span className="text-[10px] text-slate-400">{m.team}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -328,15 +459,12 @@ export default function App() {
                   handleSelectMemberFromSearch(searchResults[0].name);
                 }
               }}
-              placeholder="내 이름 검색 (예: 신동준, 노수림, 송현진...)"
-              className="w-full pl-10 pr-8 py-2.5 rounded-2xl border border-slate-700 bg-slate-800/90 focus:bg-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none text-xs sm:text-sm font-bold text-white placeholder:text-slate-400 transition"
+              placeholder="이름·클럽·조 검색 (예: 이동훈 대표님, 신동준, 노수림...)"
+              className="w-full pl-10 pr-8 py-2 rounded-2xl border border-slate-700 bg-slate-800/90 focus:bg-slate-800 focus:border-blue-500 outline-none text-xs sm:text-sm font-bold text-white placeholder:text-slate-400 transition"
             />
             {searchQuery && (
               <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setFocus({ type: 'ALL', id: null });
-                }}
+                onClick={() => handleSelectFocus({ type: 'ALL', id: null })}
                 aria-label="검색어 지우기"
                 className="absolute right-2.5 p-1 text-slate-400 hover:text-white"
               >
@@ -376,13 +504,15 @@ export default function App() {
                   >
                     <div>
                       <div className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5">
-                        <span>✨ {m.name}</span>
+                        <span>
+                          {m.isRepresentative ? '👑' : '✨'} {m.name}
+                        </span>
                         <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-cyan-300 text-[10px] font-bold">
                           {m.team}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 truncate mt-0.5">
-                        {m.clubs.join(' · ')}
+                      <div className="text-[11px] text-slate-400 truncate mt-0.5 max-w-xs">
+                        {m.isRepresentative ? '전체 16개 클럽 · 전체 조 연결' : m.clubs.join(' · ')}
                       </div>
                     </div>
                     <span className="text-xs font-extrabold text-cyan-400 shrink-0">
@@ -406,7 +536,7 @@ export default function App() {
                 ? '시각장애인 음성 안내 모드 켜짐. 누르면 끕니다.'
                 : '시각장애인 음성 안내 모드 켜기'
             }
-            className={`px-3 py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
+            className={`px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
               voiceEnabled
                 ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-md'
                 : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700'
@@ -417,15 +547,15 @@ export default function App() {
             ) : (
               <VolumeX className="w-4 h-4" aria-hidden="true" />
             )}
-            <span className="hidden md:inline">
-              {voiceEnabled ? '음성 안내 켜짐' : '음성 안내'}
+            <span className="hidden lg:inline">
+              {voiceEnabled ? '음성 켜짐' : '음성 안내'}
             </span>
           </button>
 
           <button
             onClick={() => handleOpenEditMember('')}
             aria-label="내 이름과 클럽, 키워드를 입력해 산스 연결망에 등록하기"
-            className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-blue-600/25 flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
+            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-extrabold shadow-lg shadow-blue-600/25 flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
           >
             <UserPlus className="w-4 h-4" aria-hidden="true" />
             <span>내 연결 등록</span>
@@ -434,198 +564,43 @@ export default function App() {
           <button
             onClick={() => setIsQrOpen(true)}
             aria-label="스마트폰 참여용 QR 코드 열기"
-            className="px-3.5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
+            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
           >
             <QrCode className="w-4 h-4 text-amber-300" aria-hidden="true" />
-            <span className="hidden sm:inline">QR 참여</span>
+            <span className="hidden md:inline">QR</span>
           </button>
         </div>
       </header>
 
-      {/* ==================== 2. FILTER BAR ==================== */}
-      <nav
-        aria-label="산스 클럽, 조, 구성원별 연결망 선택 바"
-        className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2 flex flex-col gap-1.5 shrink-0 z-20"
-      >
-        {/* Row 1: All Network + Team 1조~20조 + 16 Clubs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-          <button
-            onClick={() => {
-              setFocus({ type: 'ALL', id: null });
-              setSearchQuery('');
-            }}
-            aria-pressed={focus.type === 'ALL'}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold shrink-0 transition flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-amber-400 ${
-              focus.type === 'ALL'
-                ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-            }`}
-          >
-            🔗 산스 전체 연결망 ({members.length}명)
-          </button>
+      {/* ==================== 2. FULL-SCREEN GRAPH WORKSPACE + FLOATING INSPECTOR ==================== */}
+      <main className="flex-1 w-full h-full overflow-hidden relative">
+        <KnowledgeGraph
+          members={members}
+          focus={focus}
+          onSelectFocus={handleSelectFocus}
+          personSubMode={personSubMode}
+          onChangePersonSubMode={setPersonSubMode}
+          newlyJoinedNames={newlyJoinedNames}
+        />
 
-          {/* Team 1조~20조 Selector */}
-          <div className="relative shrink-0">
-            <label htmlFor="team-select-filter" className="sr-only">
-              1조부터 20조까지 조별 연결망 선택
-            </label>
-            <select
-              id="team-select-filter"
-              value={focus.type === 'TEAM' ? focus.id : ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val) {
-                  setFocus({ type: 'TEAM', id: val });
-                } else {
-                  setFocus({ type: 'ALL', id: null });
-                }
-              }}
-              className={`appearance-none pl-3 pr-7 py-1.5 rounded-xl text-xs font-extrabold border outline-none cursor-pointer transition ${
-                focus.type === 'TEAM'
-                  ? 'bg-blue-600 text-white border-blue-500'
-                  : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border-slate-700'
-              }`}
-            >
-              <option value="">🚩 조별 연결망 (1조~20조)</option>
-              {SANS_TEAMS.map((t) => {
-                const count = members.filter((m) => m.team === t).length;
-                return (
-                  <option key={t} value={t} className="bg-slate-900 text-white">
-                    산스 {t} ({count}명)
-                  </option>
-                );
-              })}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-cyan-300" />
-          </div>
-
-          <div className="h-4 w-[1px] bg-slate-800 mx-1 shrink-0" />
-
-          {/* 16 Clubs Pills */}
-          {SANS_CLUBS.map((club) => {
-            const isSelected = focus.type === 'CLUB' && focus.id === club.name;
-            const count = members.filter((m) => m.clubs.includes(club.name)).length;
-            return (
-              <button
-                key={club.id}
-                aria-pressed={isSelected}
-                aria-label={`${club.name} 연결망 보기 (${count}명)`}
-                onClick={() => setFocus({ type: 'CLUB', id: club.name })}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold shrink-0 border transition flex items-center gap-1.5 focus-visible:ring-2 focus-visible:ring-amber-400 ${
-                  isSelected
-                    ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-500/25'
-                    : 'bg-slate-800/90 hover:bg-slate-800 text-slate-200 border-slate-700'
-                }`}
-              >
-                <ClubIcon
-                  name={club.icon}
-                  className="w-3.5 h-3.5"
-                  style={{ color: isSelected ? '#FFFFFF' : club.color }}
-                />
-                <span>{club.shortName}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    isSelected ? 'bg-white/25 text-white' : 'bg-slate-950 text-cyan-300'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Row 2: Quick Member Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
-          <span className="text-[11px] font-extrabold text-slate-400 shrink-0 mr-1">
-            👤 구성원 연결 바로가기:
-          </span>
-          {members.map((m) => {
-            const isSelected = focus.type === 'MEMBER' && focus.id === m.name;
-            const isPresenter = m.name === '신동준';
-            const isNew = newlyJoinedNames.has(m.name);
-            return (
-              <button
-                key={m.name}
-                aria-pressed={isSelected}
-                aria-label={`${m.name}님 (${m.team}) 연결망 보기`}
-                onClick={() => {
-                  setFocus({ type: 'MEMBER', id: m.name });
-                  setSearchQuery(m.name);
-                }}
-                className={`px-3 py-1 rounded-full text-xs font-extrabold shrink-0 border transition flex items-center gap-1 focus-visible:ring-2 focus-visible:ring-amber-400 ${
-                  isSelected
-                    ? 'bg-blue-600 text-white border-blue-400 shadow-md shadow-blue-500/30'
-                    : isNew
-                    ? 'bg-amber-400 text-slate-950 border-white animate-pulse'
-                    : isPresenter
-                    ? 'bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border-amber-400/40'
-                    : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border-slate-700'
-                }`}
-              >
-                {isNew ? <span>✨NEW</span> : isPresenter ? <span>⭐</span> : <span>✦</span>}
-                <span>{m.name}</span>
-                <span
-                  className={`text-[10px] ${
-                    isSelected
-                      ? 'text-blue-200'
-                      : isNew
-                      ? 'text-slate-800'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  {m.team}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
-      {/* ==================== 3. MAIN WORKSPACE: GRAPH + INSPECTOR ==================== */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        <div className="flex-1 h-full relative">
-          <KnowledgeGraph
-            members={members}
-            focus={focus}
-            onSelectFocus={(nextFocus) => {
-              setFocus(nextFocus);
-              if (nextFocus.type === 'MEMBER') {
-                setSearchQuery(nextFocus.id);
-              } else if (nextFocus.type === 'ALL') {
-                setSearchQuery('');
-              }
-            }}
-            personSubMode={personSubMode}
-            onChangePersonSubMode={setPersonSubMode}
-            newlyJoinedNames={newlyJoinedNames}
-          />
-        </div>
-
-        <div className="h-64 lg:h-full shrink-0 overflow-hidden">
-          <ConnectionInspector
-            members={members}
-            focus={focus}
-            onSelectFocus={(nextFocus) => {
-              setFocus(nextFocus);
-              if (nextFocus.type === 'MEMBER') {
-                setSearchQuery(nextFocus.id);
-              }
-            }}
-            onOpenEditMember={handleOpenEditMember}
-          />
-        </div>
+        <ConnectionInspector
+          members={members}
+          focus={focus}
+          onSelectFocus={handleSelectFocus}
+          onOpenEditMember={handleOpenEditMember}
+          isOpen={isInspectorOpen}
+          onToggleOpen={() => setIsInspectorOpen((v) => !v)}
+        />
       </main>
 
-      {/* ==================== 4. MODALS ==================== */}
+      {/* ==================== 3. MODALS ==================== */}
       <JoinModal
         isOpen={isJoinOpen}
         onClose={() => setIsJoinOpen(false)}
         members={members}
         onSubmitMember={handleSubmitMember}
         onQuickViewMember={(memberName) => {
-          setFocus({ type: 'MEMBER', id: memberName });
-          setSearchQuery(memberName);
+          handleSelectFocus({ type: 'MEMBER', id: memberName });
         }}
         initialName={editInitialName}
         voiceEnabled={voiceEnabled}

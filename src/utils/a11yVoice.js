@@ -87,7 +87,8 @@ export function buildMemberConnectionSummaryText(person, members) {
   members.forEach((other) => {
     if (other.name === person.name) return;
     const sharedClubs = other.clubs.filter((c) => person.clubs.includes(c));
-    const sameTeam = other.team && other.team === person.team;
+    const sameTeam =
+      person.allTeams || other.allTeams || (other.team && other.team === person.team);
     const sharedKeywords = other.keywords.filter((k) => person.keywords.includes(k));
 
     if (sharedClubs.length > 0) {

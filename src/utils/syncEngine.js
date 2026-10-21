@@ -63,6 +63,8 @@ export function computeMembersFromEvents(events) {
         id: `member-${cleanName}`,
         name: cleanName,
         team: ev.member.team || existing?.team || '5조',
+        allTeams: existing?.allTeams || false,
+        isRepresentative: existing?.isRepresentative || false,
         clubs: Array.isArray(ev.member.clubs) && ev.member.clubs.length > 0
           ? ev.member.clubs
           : (existing?.clubs || []),

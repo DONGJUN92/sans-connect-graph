@@ -46,15 +46,23 @@ function getKeywordStarColor(keyword) {
   return '#38BDF8';
 }
 
-const BACKGROUND_STARS = Array.from({ length: 150 }, (_, i) => {
+const BACKGROUND_STARS = Array.from({ length: 130 }, (_, i) => {
   const seed1 = Math.sin(i * 12.9898) * 43758.5453;
   const seed2 = Math.sin(i * 78.233) * 43758.5453;
   const rx = (seed1 - Math.floor(seed1)) * 2200 - 1100;
   const ry = (seed2 - Math.floor(seed2)) * 1600 - 800;
-  const r = i % 5 === 0 ? 2.1 : i % 3 === 0 ? 1.4 : 0.9;
-  const opacity = 0.2 + ((i * 17) % 65) / 100;
+  const r = i % 5 === 0 ? 2.0 : i % 3 === 0 ? 1.4 : 0.9;
+  const opacity = 0.18 + ((i * 17) % 55) / 100;
   return { id: i, x: rx, y: ry, r, opacity };
 });
+
+function isSameTeamMatch(m1, m2) {
+  if (!m1 || !m2) return null;
+  if (m1.allTeams) return m2.team || '전체 조';
+  if (m2.allTeams) return m1.team || '전체 조';
+  if (m1.team && m1.team === m2.team) return m1.team;
+  return null;
+}
 
 function buildGraphLayout(members, focus, personSubMode = 'HUB') {
   const nodes = [];
@@ -87,6 +95,11 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       return buildGraphLayout(members, { type: 'ALL' }, personSubMode);
     }
 
+    // If 이동훈 대표님 is selected, show him at the center of SANS with all 16 clubs & members!
+    if (targetMember.isRepresentative) {
+      return buildGraphLayout(members, { type: 'ALL', highlightRep: true }, personSubMode);
+    }
+
     addNode({
       id: `member:${targetMember.name}`,
       key: targetMember.name,
@@ -96,7 +109,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       member: targetMember,
       x: 0,
       y: 0,
-      radius: 44,
+      radius: 48,
       color: '#38BDF8'
     });
 
@@ -104,7 +117,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     for (const m of members) {
       if (m.name === targetMember.name) continue;
       const sharedClubs = m.clubs.filter((c) => targetMember.clubs.includes(c));
-      const sameTeam = m.team && m.team === targetMember.team ? m.team : null;
+      const sameTeam = isSameTeamMatch(targetMember, m);
       const sharedKeywords = m.keywords.filter((k) => targetMember.keywords.includes(k));
 
       if (sharedClubs.length > 0 || sameTeam || sharedKeywords.length > 0) {
@@ -113,21 +126,26 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
           sharedClubs,
           sameTeam,
           sharedKeywords,
-          totalScore: sharedClubs.length * 3 + (sameTeam ? 3 : 0) + sharedKeywords.length * 2
+          totalScore:
+            (m.isRepresentative ? 10 : 0) +
+            sharedClubs.length * 3 +
+            (sameTeam ? 3 : 0) +
+            sharedKeywords.length * 2
         });
       }
     }
 
     if (personSubMode === 'DIRECT') {
       const count = connectedColleagues.length;
-      const ringRadius = Math.max(340, (count * 122) / (2 * Math.PI));
+      const ringRadius = Math.max(320, (count * 130) / (2 * Math.PI));
 
       connectedColleagues.forEach((item, idx) => {
         const angle = (2 * Math.PI * idx) / Math.max(1, count) - Math.PI / 2;
         const m = item.member;
         const firstClubName = item.sharedClubs[0] || m.clubs[0];
-        const lineColor =
-          CLUB_STAR_COLORS[firstClubName] || (item.sameTeam ? '#818CF8' : '#34D399');
+        const lineColor = m.isRepresentative
+          ? '#FBBF24'
+          : CLUB_STAR_COLORS[firstClubName] || (item.sameTeam ? '#818CF8' : '#34D399');
 
         const badges = [
           ...item.sharedClubs.map((c) => ({
@@ -152,7 +170,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
           sharedBadges: badges,
           x: Math.cos(angle) * ringRadius,
           y: Math.sin(angle) * ringRadius,
-          radius: 24,
+          radius: m.isRepresentative ? 34 : 28,
           color: lineColor
         });
 
@@ -161,10 +179,10 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
           target: nodeId,
           kind: 'DIRECT_BRIDGE',
           color: lineColor,
-          width: Math.min(4.2, 2.2 + item.totalScore * 0.3),
+          width: Math.min(4.5, 2.4 + item.totalScore * 0.25),
           label: badges.slice(0, 2).map((b) => b.text).join(' · '),
           extraCount: Math.max(0, badges.length - 2),
-          labelPosRatio: idx % 2 === 0 ? 0.45 : 0.64,
+          labelPosRatio: idx % 2 === 0 ? 0.44 : 0.64,
           isPrimary: true
         });
       });
@@ -214,7 +232,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     }
 
     const r1Count = ring1Hubs.length;
-    const r1Radius = Math.max(230, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(220, (r1Count * 120) / (2 * Math.PI));
 
     ring1Hubs.forEach((hub, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
@@ -226,7 +244,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         x: hx,
         y: hy,
         angle,
-        radius: hub.nodeType === 'CLUB' ? 30 : 25
+        radius: hub.nodeType === 'CLUB' ? 34 : 28
       });
 
       addEdge({
@@ -234,7 +252,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         target: hub.id,
         kind: `HERO_TO_${hub.hubKind}`,
         color: hub.color,
-        width: 3.0,
+        width: 3.2,
         isPrimary: true
       });
     });
@@ -264,7 +282,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     scoredWithAngle.sort((a, b) => a.preferredAngle - b.preferredAngle);
 
     const r2Count = scoredWithAngle.length;
-    const r2Radius = Math.max(440, r1Radius + 210, (r2Count * 108) / (2 * Math.PI));
+    const r2Radius = Math.max(420, r1Radius + 195, (r2Count * 115) / (2 * Math.PI));
 
     scoredWithAngle.forEach((item, idx) => {
       const evenAngle = (2 * Math.PI * idx) / Math.max(1, r2Count) - Math.PI;
@@ -297,8 +315,8 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         sharedBadges: badges,
         x: mx,
         y: my,
-        radius: 23,
-        color: primaryHub?.color || '#38BDF8'
+        radius: m.isRepresentative ? 32 : 27,
+        color: m.isRepresentative ? '#FBBF24' : primaryHub?.color || '#38BDF8'
       });
 
       item.matchingHubs.forEach((mh) => {
@@ -306,8 +324,8 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
           source: mh.id,
           target: memberNodeId,
           kind: `${mh.hubKind}_TO_MEMBER`,
-          color: mh.color,
-          width: mh.hubKind === 'CLUB' ? 2.2 : 1.8,
+          color: m.isRepresentative ? '#FBBF24' : mh.color,
+          width: mh.hubKind === 'CLUB' ? 2.4 : 1.9,
           isPrimary: false
         });
       });
@@ -333,12 +351,12 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       club: targetClub,
       x: 0,
       y: 0,
-      radius: 48,
+      radius: 52,
       color: starColor
     });
 
     const r1Count = clubMembers.length;
-    const r1Radius = Math.max(225, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(220, (r1Count * 125) / (2 * Math.PI));
 
     clubMembers.forEach((m, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
@@ -363,16 +381,16 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         x: Math.cos(angle) * r1Radius,
         y: Math.sin(angle) * r1Radius,
         angle,
-        radius: 25,
-        color: starColor
+        radius: m.isRepresentative ? 32 : 28,
+        color: m.isRepresentative ? '#FBBF24' : starColor
       });
 
       addEdge({
         source: `club:${targetClub.name}`,
         target: mNodeId,
         kind: 'CLUB_TO_MEMBER',
-        color: starColor,
-        width: 3.0,
+        color: m.isRepresentative ? '#FBBF24' : starColor,
+        width: 3.2,
         isPrimary: true
       });
     });
@@ -381,6 +399,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       for (let j = i + 1; j < clubMembers.length; j++) {
         const m1 = clubMembers[i];
         const m2 = clubMembers[j];
+        if (m1.isRepresentative || m2.isRepresentative) continue;
         const sharedKw = m1.keywords.filter((k) => m2.keywords.includes(k));
         const sameTeam = m1.team === m2.team ? m1.team : null;
         if (sharedKw.length > 0 || sameTeam) {
@@ -389,7 +408,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
             target: `member:${m2.name}`,
             kind: 'PEER_RESONANCE',
             color: sameTeam ? '#818CF8' : '#34D399',
-            width: 1.8,
+            width: 2.0,
             dashed: true,
             label: sameTeam || sharedKw[0]
           });
@@ -403,14 +422,16 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     const kwMap = new Map();
 
     clubMembers.forEach((m) => {
-      m.clubs.forEach((cName) => {
-        if (cName === targetClub.name) return;
-        if (!otherClubMap.has(cName)) otherClubMap.set(cName, []);
-        otherClubMap.get(cName).push(m);
-      });
-      if (m.team) {
-        if (!teamMap.has(m.team)) teamMap.set(m.team, []);
-        teamMap.get(m.team).push(m);
+      if (!m.isRepresentative) {
+        m.clubs.forEach((cName) => {
+          if (cName === targetClub.name) return;
+          if (!otherClubMap.has(cName)) otherClubMap.set(cName, []);
+          otherClubMap.get(cName).push(m);
+        });
+        if (m.team) {
+          if (!teamMap.has(m.team)) teamMap.set(m.team, []);
+          teamMap.get(m.team).push(m);
+        }
       }
       m.keywords.forEach((kw) => {
         if (!kwMap.has(kw)) kwMap.set(kw, []);
@@ -469,7 +490,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     outerNodes.sort((a, b) => a.prefAngle - b.prefAngle);
 
     const r2Count = outerNodes.length;
-    const r2Radius = Math.max(435, r1Radius + 195, (r2Count * 100) / (2 * Math.PI));
+    const r2Radius = Math.max(415, r1Radius + 185, (r2Count * 108) / (2 * Math.PI));
 
     outerNodes.forEach((on, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r2Count) - Math.PI;
@@ -477,7 +498,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         ...on,
         x: Math.cos(angle) * r2Radius,
         y: Math.sin(angle) * r2Radius,
-        radius: on.nodeType === 'CLUB' ? 28 : 23
+        radius: on.nodeType === 'CLUB' ? 32 : 26
       });
 
       on.bridgeMembers.forEach((bm) => {
@@ -486,7 +507,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
           target: on.id,
           kind: 'MEMBER_TO_OUTER',
           color: on.color,
-          width: on.nodeType === 'CLUB' ? 2.2 : 1.6
+          width: on.nodeType === 'CLUB' ? 2.4 : 1.8
         });
       });
     });
@@ -499,7 +520,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
   // =========================================================================
   if (focus.type === 'TEAM') {
     const teamName = focus.id;
-    const teamMembers = members.filter((m) => m.team === teamName);
+    const teamMembers = members.filter((m) => m.team === teamName || m.allTeams);
 
     addNode({
       id: `team:${teamName}`,
@@ -509,42 +530,44 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       subLabel: `소속 구성원 ${teamMembers.length}명`,
       x: 0,
       y: 0,
-      radius: 46,
+      radius: 50,
       color: '#818CF8'
     });
 
     const r1Count = teamMembers.length;
-    const r1Radius = Math.max(215, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(210, (r1Count * 125) / (2 * Math.PI));
 
     teamMembers.forEach((m, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
       const mNodeId = `member:${m.name}`;
-      const badges = m.clubs.map((c) => ({
-        text: clubByName.get(c)?.shortName || c,
-        color: CLUB_STAR_COLORS[c] || '#38BDF8'
-      }));
+      const badges = m.isRepresentative
+        ? [{ text: '전체 클럽 · 전체 조', color: '#FBBF24' }]
+        : m.clubs.map((c) => ({
+            text: clubByName.get(c)?.shortName || c,
+            color: CLUB_STAR_COLORS[c] || '#38BDF8'
+          }));
 
       addNode({
         id: mNodeId,
         key: m.name,
         nodeType: 'MEMBER',
         label: m.name,
-        subLabel: `클럽 ${m.clubs.length}개`,
+        subLabel: m.isRepresentative ? '산스 대표' : `클럽 ${m.clubs.length}개`,
         member: m,
         sharedBadges: badges,
         x: Math.cos(angle) * r1Radius,
         y: Math.sin(angle) * r1Radius,
         angle,
-        radius: 25,
-        color: '#818CF8'
+        radius: m.isRepresentative ? 32 : 28,
+        color: m.isRepresentative ? '#FBBF24' : '#818CF8'
       });
 
       addEdge({
         source: `team:${teamName}`,
         target: mNodeId,
         kind: 'TEAM_TO_MEMBER',
-        color: '#818CF8',
-        width: 3.0,
+        color: m.isRepresentative ? '#FBBF24' : '#818CF8',
+        width: 3.2,
         isPrimary: true
       });
     });
@@ -554,10 +577,12 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     const kwMap = new Map();
 
     teamMembers.forEach((m) => {
-      m.clubs.forEach((cName) => {
-        if (!clubMap.has(cName)) clubMap.set(cName, []);
-        clubMap.get(cName).push(m);
-      });
+      if (!m.isRepresentative) {
+        m.clubs.forEach((cName) => {
+          if (!clubMap.has(cName)) clubMap.set(cName, []);
+          clubMap.get(cName).push(m);
+        });
+      }
       m.keywords.forEach((kw) => {
         if (!kwMap.has(kw)) kwMap.set(kw, []);
         kwMap.get(kw).push(m);
@@ -589,7 +614,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     }
 
     const r2Count = outerHubs.length;
-    const r2Radius = Math.max(415, r1Radius + 190, (r2Count * 100) / (2 * Math.PI));
+    const r2Radius = Math.max(395, r1Radius + 175, (r2Count * 105) / (2 * Math.PI));
 
     outerHubs.forEach((oh, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r2Count) - Math.PI / 2;
@@ -597,7 +622,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         ...oh,
         x: Math.cos(angle) * r2Radius,
         y: Math.sin(angle) * r2Radius,
-        radius: oh.nodeType === 'CLUB' ? 28 : 23
+        radius: oh.nodeType === 'CLUB' ? 32 : 26
       });
 
       oh.bridgeMembers.forEach((bm) => {
@@ -606,7 +631,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
           target: oh.id,
           kind: 'MEMBER_TO_HUB',
           color: oh.color,
-          width: oh.nodeType === 'CLUB' ? 2.2 : 1.7
+          width: oh.nodeType === 'CLUB' ? 2.4 : 1.8
         });
       });
     });
@@ -630,23 +655,25 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       subLabel: `공감 구성원 ${kwMembers.length}명`,
       x: 0,
       y: 0,
-      radius: 44,
+      radius: 48,
       color: starColor
     });
 
     const r1Count = kwMembers.length;
-    const r1Radius = Math.max(225, (r1Count * 115) / (2 * Math.PI));
+    const r1Radius = Math.max(210, (r1Count * 130) / (2 * Math.PI));
 
     kwMembers.forEach((m, idx) => {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
       const mNodeId = `member:${m.name}`;
-      const badges = [
-        { text: m.team, color: '#818CF8' },
-        ...m.clubs.map((c) => ({
-          text: clubByName.get(c)?.shortName || c,
-          color: CLUB_STAR_COLORS[c] || '#38BDF8'
-        }))
-      ];
+      const badges = m.isRepresentative
+        ? [{ text: '전체 조 · 16개 클럽', color: '#FBBF24' }]
+        : [
+            { text: m.team, color: '#818CF8' },
+            ...m.clubs.map((c) => ({
+              text: clubByName.get(c)?.shortName || c,
+              color: CLUB_STAR_COLORS[c] || '#38BDF8'
+            }))
+          ];
 
       addNode({
         id: mNodeId,
@@ -658,16 +685,16 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         sharedBadges: badges,
         x: Math.cos(angle) * r1Radius,
         y: Math.sin(angle) * r1Radius,
-        radius: 25,
-        color: starColor
+        radius: m.isRepresentative ? 32 : 28,
+        color: m.isRepresentative ? '#FBBF24' : starColor
       });
 
       addEdge({
         source: `keyword:${keyword}`,
         target: mNodeId,
         kind: 'KEYWORD_TO_MEMBER',
-        color: starColor,
-        width: 2.8,
+        color: m.isRepresentative ? '#FBBF24' : starColor,
+        width: 3.2,
         isPrimary: true
       });
     });
@@ -676,21 +703,27 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
   }
 
   // =========================================================================
-  // 5. DEFAULT FOCUS: ALL SANS NETWORK (산스 전체 연결망)
+  // 5. DEFAULT FOCUS: ALL SANS NETWORK (중심: 이동훈 대표님 · 산스 SANS)
   // =========================================================================
+  const repMember = members.find((m) => m.isRepresentative) || {
+    name: '이동훈 대표님',
+    team: '전체 조'
+  };
+
   addNode({
     id: 'core:SANS',
-    key: 'SANS',
+    key: repMember.name,
     nodeType: 'SANS_CORE',
-    label: '산스 (SANS)',
-    subLabel: `16개 클럽 · ${members.length}명 연결`,
+    label: '이동훈 대표님',
+    subLabel: `산스(SANS) · 전체 조 · 16개 클럽 · ${members.length}명 연결`,
+    member: repMember,
     x: 0,
     y: 0,
-    radius: 50,
+    radius: 58,
     color: '#FBBF24'
   });
 
-  const clubRadius = 265;
+  const clubRadius = 260;
   const clubAngles = new Map();
 
   SANS_CLUBS.forEach((club, idx) => {
@@ -699,19 +732,26 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     const clubMembersCount = members.filter((m) => m.clubs.includes(club.name)).length;
     const starColor = CLUB_STAR_COLORS[club.name] || '#38BDF8';
 
+    const shortClubLabel =
+      club.shortName === 'Eng Speech'
+        ? '영어스피치'
+        : club.shortName === 'Sans 레가타'
+        ? '레가타'
+        : club.shortName;
+
     const clubNodeId = `club:${club.name}`;
     addNode({
       id: clubNodeId,
       key: club.name,
       nodeType: 'CLUB',
-      label: club.shortName + ' 클럽',
+      label: shortClubLabel,
       fullName: club.name,
       subLabel: `${clubMembersCount}명`,
       club,
       x: Math.cos(angle) * clubRadius,
       y: Math.sin(angle) * clubRadius,
       angle,
-      radius: 29,
+      radius: 30,
       color: starColor
     });
 
@@ -719,12 +759,15 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       source: 'core:SANS',
       target: clubNodeId,
       kind: 'SANS_TO_CLUB',
-      color: '#475569',
-      width: 1.5
+      color: '#FBBF24',
+      width: 2.0,
+      isPrimary: Boolean(focus.highlightRep)
     });
   });
 
-  const membersWithAngle = members.map((m, idx) => {
+  const regularMembers = members.filter((m) => !m.isRepresentative);
+
+  const membersWithAngle = regularMembers.map((m, idx) => {
     let sinSum = 0;
     let cosSum = 0;
     m.clubs.forEach((cName) => {
@@ -737,14 +780,14 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     const prefAngle =
       m.clubs.length > 0
         ? Math.atan2(sinSum, cosSum)
-        : (2 * Math.PI * idx) / Math.max(1, members.length);
+        : (2 * Math.PI * idx) / Math.max(1, regularMembers.length);
     return { member: m, prefAngle };
   });
 
   membersWithAngle.sort((a, b) => a.prefAngle - b.prefAngle);
 
   const mCount = membersWithAngle.length;
-  const memberRadius = Math.max(500, (mCount * 88) / (2 * Math.PI));
+  const memberRadius = Math.max(485, (mCount * 95) / (2 * Math.PI));
 
   membersWithAngle.forEach(({ member: m }, idx) => {
     const angle = (2 * Math.PI * idx) / Math.max(1, mCount) - Math.PI;
@@ -770,7 +813,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       sharedBadges: badges,
       x: Math.cos(angle) * memberRadius,
       y: Math.sin(angle) * memberRadius,
-      radius: m.clubs.length > 1 ? 23 : 20,
+      radius: m.clubs.length > 1 ? 26 : 24,
       color: starColor
     });
 
@@ -781,7 +824,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
           target: mNodeId,
           kind: 'CLUB_TO_MEMBER',
           color: CLUB_STAR_COLORS[cName] || '#38BDF8',
-          width: m.clubs.length > 1 ? 2.2 : 1.7
+          width: m.clubs.length > 1 ? 2.4 : 1.9
         });
       });
     } else {
@@ -790,12 +833,24 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         target: mNodeId,
         kind: 'SANS_TO_MEMBER',
         color: '#64748B',
-        width: 1.5
+        width: 1.8
       });
     }
   });
 
   return { nodes, edges };
+}
+
+function computeAutoFitScale(nodes) {
+  if (!nodes || nodes.length === 0) return { x: 0, y: 0, k: 0.85 };
+  let maxExtent = 240;
+  for (const n of nodes) {
+    const d = Math.max(Math.abs(n.x) + 110, Math.abs(n.y) + 95);
+    if (d > maxExtent) maxExtent = d;
+  }
+  // SVG viewBox half-height is 430, half-width is 620
+  const k = Math.min(1.25, Math.max(0.68, 415 / maxExtent));
+  return { x: 0, y: 0, k };
 }
 
 export default function KnowledgeGraph({
@@ -835,25 +890,20 @@ export default function KnowledgeGraph({
         .join(', ')})이 연결되어 있습니다.`;
     }
     if (focus.type === 'TEAM') {
-      const teamMembers = members.filter((m) => m.team === focus.id);
+      const teamMembers = members.filter((m) => m.team === focus.id || m.allTeams);
       return `산스 ${focus.id} 중심 연결망입니다. 소속 구성원 ${teamMembers.length}명(${teamMembers
         .map((m) => m.name)
         .join(', ')})이 연결되어 있습니다.`;
     }
-    return `산스 전체 연결망입니다. 16개 클럽과 총 ${members.length}명의 산스 구성원이 하나로 연결되어 있습니다.`;
+    return `산스 전체 연결망입니다. 중심에 이동훈 대표님이 위치하며, 16개 클럽과 총 ${members.length}명의 산스 구성원이 하나로 연결되어 있습니다.`;
   }, [focus, members]);
 
+  // Auto-fit camera scale based on node bounding box so small/medium/large graphs all fill the viewport!
   useEffect(() => {
     setDragOffsets({});
     setHoveredNodeId(null);
-    if (focus.type === 'ALL') {
-      setTransform({ x: 0, y: 0, k: 0.72 });
-    } else if (focus.type === 'MEMBER' && personSubMode === 'DIRECT') {
-      setTransform({ x: 0, y: 0, k: 0.90 });
-    } else {
-      setTransform({ x: 0, y: 0, k: 0.82 });
-    }
-  }, [focus.type, focus.id, personSubMode]);
+    setTransform(computeAutoFitScale(nodes));
+  }, [focus.type, focus.id, personSubMode, nodes.length]);
 
   const nodesWithDrag = useMemo(() => {
     return nodes.map((n) => {
@@ -883,7 +933,7 @@ export default function KnowledgeGraph({
     const factor = e.deltaY < 0 ? 1.1 : 0.9;
     setTransform((prev) => ({
       ...prev,
-      k: Math.min(2.4, Math.max(0.32, prev.k * factor))
+      k: Math.min(2.5, Math.max(0.35, prev.k * factor))
     }));
   };
 
@@ -946,7 +996,7 @@ export default function KnowledgeGraph({
     if (draggingNodeRef.current && draggingNodeRef.current.moved) return;
 
     if (node.nodeType === 'SANS_CORE') {
-      onSelectFocus({ type: 'ALL', id: null });
+      onSelectFocus({ type: 'MEMBER', id: '이동훈 대표님' });
     } else if (node.nodeType === 'MEMBER' || node.nodeType === 'MEMBER_HERO') {
       onSelectFocus({ type: 'MEMBER', id: node.key });
     } else if (node.nodeType === 'CLUB' || node.nodeType === 'CLUB_HERO') {
@@ -960,11 +1010,7 @@ export default function KnowledgeGraph({
 
   const handleResetView = () => {
     setDragOffsets({});
-    setTransform({
-      x: 0,
-      y: 0,
-      k: focus.type === 'ALL' ? 0.72 : 0.85
-    });
+    setTransform(computeAutoFitScale(nodes));
   };
 
   return (
@@ -973,20 +1019,20 @@ export default function KnowledgeGraph({
       aria-label="산스 연결망 지식그래프 시각화 영역"
       className="relative w-full h-full overflow-hidden select-none"
       style={{
-        background: 'radial-gradient(ellipse at 50% 45%, #111C38 0%, #090E1E 55%, #040711 100%)'
+        background: 'radial-gradient(ellipse at 50% 48%, #111C38 0%, #090E1E 58%, #040711 100%)'
       }}
     >
-      {/* Screen-Reader Live Announcement Region (VoiceOver / TalkBack) */}
+      {/* Screen-Reader Live Announcement Region */}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {screenReaderSummary}
       </div>
 
-      {/* Top-Left Floating Context Pill, Voice Readout Button & Mode Switcher */}
-      <div className="absolute top-3.5 left-3.5 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100%-90px)]">
-        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-lg rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#22D3EE] animate-pulse" />
+      {/* Top-Left Minimal Context Pill, Voice Readout & Mode Switcher */}
+      <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-2 max-w-[calc(100%-90px)]">
+        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-lg rounded-2xl px-4 py-2 flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#FBBF24] animate-pulse" />
           <div className="text-xs sm:text-sm font-extrabold text-white">
-            {focus.type === 'ALL' && '🔗 산스(SANS) 전체 연결망'}
+            {focus.type === 'ALL' && '👑 이동훈 대표님 · 산스(SANS) 전체 연결망'}
             {focus.type === 'MEMBER' && `✨ [${focus.id}]님의 산스 연결망`}
             {focus.type === 'CLUB' && `🏛️ [${focus.id}] 중심 연결망`}
             {focus.type === 'TEAM' && `🚩 [산스 ${focus.id}] 중심 연결망`}
@@ -996,25 +1042,25 @@ export default function KnowledgeGraph({
             <button
               onClick={() => onSelectFocus({ type: 'ALL', id: null })}
               aria-label="전체 산스 연결망 보기로 돌아가기"
-              className="ml-1 text-xs font-extrabold text-cyan-300 hover:text-white bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/30 px-3 py-1 rounded-xl transition focus-visible:ring-4 focus-visible:ring-amber-400"
+              className="ml-1 text-xs font-extrabold text-amber-300 hover:text-white bg-amber-400/20 hover:bg-amber-400/35 border border-amber-400/40 px-3 py-1 rounded-xl transition focus-visible:ring-4 focus-visible:ring-amber-400"
             >
               전체 연결망 보기
             </button>
           )}
         </div>
 
-        {/* One-Click Voice Readout of Current Connections for Visually Impaired Users */}
+        {/* One-Click Voice Readout of Current Connections */}
         <button
           type="button"
           onClick={() => speakKorean(screenReaderSummary, true)}
           aria-label="현재 화면의 연결 관계를 음성으로 듣기"
-          className="bg-slate-900/90 hover:bg-slate-800 backdrop-blur-xl border border-amber-400/50 text-amber-300 shadow-lg rounded-2xl px-3.5 py-2.5 text-xs font-extrabold flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
+          className="bg-slate-900/90 hover:bg-slate-800 backdrop-blur-xl border border-amber-400/50 text-amber-300 shadow-lg rounded-2xl px-3.5 py-2 text-xs font-extrabold flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
         >
           <Volume2 className="w-4 h-4 text-amber-400" aria-hidden="true" />
-          <span>현재 연결 음성으로 듣기</span>
+          <span className="hidden sm:inline">현재 연결 음성 듣기</span>
         </button>
 
-        {focus.type === 'MEMBER' && (
+        {focus.type === 'MEMBER' && focus.id !== '이동훈 대표님' && (
           <div
             role="group"
             aria-label="개인 연결망 표시 방식 선택"
@@ -1023,7 +1069,7 @@ export default function KnowledgeGraph({
             <button
               onClick={() => onChangePersonSubMode('HUB')}
               aria-pressed={personSubMode === 'HUB'}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
                 personSubMode === 'HUB'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -1035,7 +1081,7 @@ export default function KnowledgeGraph({
             <button
               onClick={() => onChangePersonSubMode('DIRECT')}
               aria-pressed={personSubMode === 'DIRECT'}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold transition ${
                 personSubMode === 'DIRECT'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800'
@@ -1048,29 +1094,29 @@ export default function KnowledgeGraph({
         )}
       </div>
 
-      {/* Bottom-Right Floating Zoom Controls */}
-      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-xl rounded-2xl p-1.5">
+      {/* Bottom-Left Compact Zoom Controls */}
+      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-xl rounded-2xl p-1.5">
         <button
-          onClick={() => setTransform((p) => ({ ...p, k: Math.min(2.4, p.k * 1.18) }))}
+          onClick={() => setTransform((p) => ({ ...p, k: Math.min(2.5, p.k * 1.18) }))}
           aria-label="연결망 화면 확대"
           title="확대"
-          className="p-2.5 text-slate-200 hover:bg-slate-800 rounded-xl transition focus-visible:ring-2 focus-visible:ring-amber-400"
+          className="p-2 text-slate-200 hover:bg-slate-800 rounded-xl transition"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
-          onClick={() => setTransform((p) => ({ ...p, k: Math.max(0.32, p.k * 0.84) }))}
+          onClick={() => setTransform((p) => ({ ...p, k: Math.max(0.35, p.k * 0.84) }))}
           aria-label="연결망 화면 축소"
           title="축소"
-          className="p-2.5 text-slate-200 hover:bg-slate-800 rounded-xl transition focus-visible:ring-2 focus-visible:ring-amber-400"
+          className="p-2 text-slate-200 hover:bg-slate-800 rounded-xl transition"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
         <button
           onClick={handleResetView}
-          aria-label="연결망 화면 중앙 정렬"
-          title="중앙 정렬"
-          className="p-2.5 text-slate-200 hover:bg-slate-800 rounded-xl transition focus-visible:ring-2 focus-visible:ring-amber-400"
+          aria-label="연결망 화면 중앙 맞춤"
+          title="화면 맞춤"
+          className="p-2 text-slate-200 hover:bg-slate-800 rounded-xl transition"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
@@ -1078,7 +1124,7 @@ export default function KnowledgeGraph({
           onClick={() => setDimUnconnected((v) => !v)}
           aria-label="연결선 강조 효과 토글"
           title="연결 강조 토글"
-          className={`p-2.5 rounded-xl transition ${
+          className={`p-2 rounded-xl transition ${
             dimUnconnected ? 'text-cyan-400 bg-cyan-500/15' : 'text-slate-400 hover:bg-slate-800'
           }`}
         >
@@ -1086,27 +1132,7 @@ export default function KnowledgeGraph({
         </button>
       </div>
 
-      {/* Bottom-Left Legend */}
-      <div className="hidden sm:flex absolute bottom-4 left-4 z-20 bg-slate-900/85 backdrop-blur-xl border border-slate-700/70 shadow-lg rounded-2xl px-4 py-2.5 items-center gap-4 text-xs text-slate-300">
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_8px_#FBBF24] inline-block" />
-          <span className="font-bold">중심 노드 (나 / 산스)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-md bg-rose-400 shadow-[0_0_8px_#FB7185] inline-block" />
-          <span className="font-bold">16개 클럽 허브</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-full bg-white shadow-[0_0_8px_#38BDF8] inline-block" />
-          <span className="font-bold">산스 구성원 (클릭 시 이동)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-emerald-400 shadow-[0_0_8px_#34D399] inline-block" />
-          <span className="font-bold">공감 키워드 · 조(1~20조)</span>
-        </div>
-      </div>
-
-      {/* Main Interactive Knowledge Graph SVG */}
+      {/* Main Full-Screen Interactive Knowledge Graph SVG */}
       <svg
         ref={svgRef}
         onWheel={handleWheel}
@@ -1116,7 +1142,7 @@ export default function KnowledgeGraph({
         onPointerLeave={handlePointerUpCanvas}
         aria-hidden="true"
         className="w-full h-full cursor-grab active:cursor-grabbing"
-        viewBox="-600 -420 1200 840"
+        viewBox="-620 -430 1240 860"
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
@@ -1129,7 +1155,7 @@ export default function KnowledgeGraph({
           </filter>
 
           <filter id="supernova-glow" x="-80%" y="-80%" width="260%" height="260%">
-            <feGaussianBlur stdDeviation="12" result="blur1" />
+            <feGaussianBlur stdDeviation="14" result="blur1" />
             <feGaussianBlur stdDeviation="4" result="blur2" />
             <feMerge>
               <feMergeNode in="blur1" />
@@ -1139,8 +1165,8 @@ export default function KnowledgeGraph({
           </filter>
 
           <radialGradient id="nebula-center" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.16" />
-            <stop offset="55%" stopColor="#6366F1" stopOpacity="0.06" />
+            <stop offset="0%" stopColor="#FBBF24" stopOpacity="0.14" />
+            <stop offset="45%" stopColor="#38BDF8" stopOpacity="0.08" />
             <stop offset="100%" stopColor="#090E1E" stopOpacity="0" />
           </radialGradient>
         </defs>
@@ -1148,7 +1174,7 @@ export default function KnowledgeGraph({
         <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.k})`}>
           {/* ==================== 0. DEEP SPACE STARFIELD & ORBIT RINGS ==================== */}
           <g className="pointer-events-none">
-            <circle cx={0} cy={0} r={520} fill="url(#nebula-center)" />
+            <circle cx={0} cy={0} r={540} fill="url(#nebula-center)" />
 
             {BACKGROUND_STARS.map((st) => (
               <circle
@@ -1160,35 +1186,6 @@ export default function KnowledgeGraph({
                 fillOpacity={st.opacity}
               />
             ))}
-
-            <circle
-              cx={0}
-              cy={0}
-              r={
-                focus.type === 'ALL'
-                  ? 265
-                  : personSubMode === 'DIRECT' && focus.type === 'MEMBER'
-                  ? 340
-                  : 230
-              }
-              fill="none"
-              stroke="#334155"
-              strokeOpacity={0.55}
-              strokeWidth={1.2}
-              strokeDasharray="5 7"
-            />
-            {!(personSubMode === 'DIRECT' && focus.type === 'MEMBER') && (
-              <circle
-                cx={0}
-                cy={0}
-                r={focus.type === 'ALL' ? 500 : 440}
-                fill="none"
-                stroke="#1E293B"
-                strokeOpacity={0.75}
-                strokeWidth={1.2}
-                strokeDasharray="3 9"
-              />
-            )}
           </g>
 
           {/* ==================== 1. CONNECTION LINES ==================== */}
@@ -1210,12 +1207,12 @@ export default function KnowledgeGraph({
                 activeConnectedSet && dimUnconnected
                   ? isHighlighted
                     ? 1
-                    : 0.08
+                    : 0.1
                   : isNewEdge
                   ? 1
                   : edge.isPrimary
-                  ? 0.92
-                  : 0.68;
+                  ? 0.94
+                  : 0.72;
 
               const dx = t.x - s.x;
               const dy = t.y - s.y;
@@ -1226,7 +1223,7 @@ export default function KnowledgeGraph({
               const ly = s.y + dy * labelRatio;
 
               const dist = Math.hypot(dx, dy) || 1;
-              const curveOffset = edge.isPrimary ? 0 : Math.min(22, dist * 0.05);
+              const curveOffset = edge.isPrimary ? 0 : Math.min(20, dist * 0.05);
               const cx = mx - (dy / dist) * curveOffset;
               const cy = my + (dx / dist) * curveOffset;
 
@@ -1237,13 +1234,13 @@ export default function KnowledgeGraph({
 
               return (
                 <g key={edge.id} style={{ opacity, transition: 'opacity 200ms ease' }}>
-                  {/* Layer 1: Wide Starlight Nebula Glow */}
+                  {/* Layer 1: Wide Starlight Glow */}
                   <path
                     d={pathD}
                     fill="none"
                     stroke={isNewEdge ? '#FBBF24' : edge.color || '#38BDF8'}
-                    strokeWidth={(edge.width || 2) + (isNewEdge ? 8 : 5)}
-                    strokeOpacity={isNewEdge ? 0.38 : edge.isPrimary || isHighlighted ? 0.22 : 0.1}
+                    strokeWidth={(edge.width || 2) + (isNewEdge ? 9 : 5)}
+                    strokeOpacity={isNewEdge ? 0.42 : edge.isPrimary || isHighlighted ? 0.25 : 0.12}
                     strokeLinecap="round"
                   />
 
@@ -1254,47 +1251,46 @@ export default function KnowledgeGraph({
                     stroke={edge.color || '#38BDF8'}
                     strokeWidth={
                       isNewEdge
-                        ? (edge.width || 2) + 1.5
+                        ? (edge.width || 2) + 1.8
                         : activeConnectedSet && isHighlighted
-                        ? (edge.width || 2) + 1.0
-                        : edge.width || 2
+                        ? (edge.width || 2) + 1.2
+                        : edge.width || 2.2
                     }
-                    strokeDasharray={edge.dashed ? '6 5' : undefined}
+                    strokeDasharray={edge.dashed ? '7 5' : undefined}
                     strokeLinecap="round"
                   />
 
-                  {/* Layer 3: Animated Flowing Energy Beam on Newly Arrived Connections or Primary Lines */}
+                  {/* Layer 3: Animated Flowing Energy Beam */}
                   {(isNewEdge || edge.isPrimary) && (
                     <path
                       d={pathD}
                       fill="none"
                       stroke="#FFFFFF"
-                      strokeWidth={isNewEdge ? 2.6 : 1.5}
-                      strokeOpacity={isNewEdge ? 0.95 : 0.45}
+                      strokeWidth={isNewEdge ? 2.8 : 1.6}
+                      strokeOpacity={isNewEdge ? 0.95 : 0.5}
                       strokeLinecap="round"
                       className="animate-connection-flow"
                     />
                   )}
 
-                  {/* Edge Label Pill */}
+                  {/* Edge Label Pill (Large, High-Contrast) */}
                   {edge.label && (focus.type !== 'ALL' || isHighlighted) && (
                     <g transform={`translate(${lx}, ${ly})`}>
                       <rect
-                        x={-Math.max(40, edge.label.length * 6.0 + (edge.extraCount ? 14 : 0))}
-                        y={-11}
-                        width={Math.max(80, edge.label.length * 12.0 + (edge.extraCount ? 28 : 0))}
-                        height={22}
-                        rx={11}
+                        x={-Math.max(46, edge.label.length * 6.8 + (edge.extraCount ? 16 : 0))}
+                        y={-13}
+                        width={Math.max(92, edge.label.length * 13.6 + (edge.extraCount ? 32 : 0))}
+                        height={26}
+                        rx={13}
                         fill="#0F172A"
-                        fillOpacity={0.94}
                         stroke={edge.color || '#38BDF8'}
-                        strokeWidth={1.5}
+                        strokeWidth={1.8}
                       />
                       <text
                         x={0}
-                        y={4}
+                        y={4.5}
                         textAnchor="middle"
-                        className="text-[10.5px] font-extrabold fill-white pointer-events-none"
+                        className="text-[12px] font-extrabold fill-white pointer-events-none"
                       >
                         {edge.label}
                         {edge.extraCount > 0 ? ` +${edge.extraCount}` : ''}
@@ -1306,13 +1302,13 @@ export default function KnowledgeGraph({
             })}
           </g>
 
-          {/* ==================== 2. GRAPH NODES ==================== */}
+          {/* ==================== 2. GRAPH NODES (LARGE, HIGH-CONTRAST) ==================== */}
           <g>
             {nodesWithDrag.map((node) => {
               const isHovered = hoveredNodeId === node.id;
               const isConnected = !activeConnectedSet || activeConnectedSet.has(node.id);
               const nodeOpacity =
-                activeConnectedSet && dimUnconnected ? (isConnected ? 1 : 0.14) : 1;
+                activeConnectedSet && dimUnconnected ? (isConnected ? 1 : 0.15) : 1;
 
               const isHero =
                 node.nodeType === 'SANS_CORE' || node.nodeType.endsWith('_HERO');
@@ -1334,16 +1330,16 @@ export default function KnowledgeGraph({
                   {isNewlyJoined && (
                     <g className="pointer-events-none">
                       <circle
-                        r={node.radius + 16}
+                        r={node.radius + 18}
                         fill="none"
                         stroke="#FBBF24"
-                        strokeWidth={3}
+                        strokeWidth={3.5}
                         className="animate-ripple-expand"
                       />
                       <circle
-                        r={node.radius + 8}
+                        r={node.radius + 10}
                         fill="#FBBF24"
-                        fillOpacity={0.28}
+                        fillOpacity={0.32}
                         filter="url(#supernova-glow)"
                       />
                     </g>
@@ -1351,31 +1347,31 @@ export default function KnowledgeGraph({
 
                   {/* Outer Corona Halo Ring */}
                   <circle
-                    r={node.radius + (isHero ? 14 : isHovered ? 9 : 5)}
+                    r={node.radius + (isHero ? 16 : isHovered ? 10 : 6)}
                     fill={isNewlyJoined ? '#FBBF24' : node.color}
-                    fillOpacity={isHero || isNewlyJoined ? 0.25 : isHovered ? 0.28 : 0.14}
+                    fillOpacity={isHero || isNewlyJoined ? 0.28 : isHovered ? 0.32 : 0.16}
                     filter={isHero || isNewlyJoined ? 'url(#supernova-glow)' : undefined}
                   />
 
-                  {/* Diffraction Star Spikes (✦) */}
+                  {/* Diffraction Spikes (✦) */}
                   {(isHero || node.nodeType === 'MEMBER') && (
                     <g
                       stroke={isNewlyJoined ? '#FBBF24' : isHero ? '#FFFFFF' : node.color}
-                      strokeOpacity={isHero || isNewlyJoined ? 0.85 : 0.55}
-                      strokeWidth={isHero || isNewlyJoined ? 2.0 : 1.2}
+                      strokeOpacity={isHero || isNewlyJoined ? 0.85 : 0.6}
+                      strokeWidth={isHero || isNewlyJoined ? 2.2 : 1.4}
                       className="pointer-events-none"
                     >
                       <line
-                        x1={-(node.radius + (isHero || isNewlyJoined ? 20 : 8))}
+                        x1={-(node.radius + (isHero || isNewlyJoined ? 22 : 10))}
                         y1={0}
-                        x2={node.radius + (isHero || isNewlyJoined ? 20 : 8)}
+                        x2={node.radius + (isHero || isNewlyJoined ? 22 : 10)}
                         y2={0}
                       />
                       <line
                         x1={0}
-                        y1={-(node.radius + (isHero || isNewlyJoined ? 20 : 8))}
+                        y1={-(node.radius + (isHero || isNewlyJoined ? 22 : 10))}
                         x2={0}
-                        y2={node.radius + (isHero || isNewlyJoined ? 20 : 8)}
+                        y2={node.radius + (isHero || isNewlyJoined ? 22 : 10)}
                       />
                     </g>
                   )}
@@ -1387,90 +1383,114 @@ export default function KnowledgeGraph({
                       y={-node.radius}
                       width={node.radius * 2}
                       height={node.radius * 2}
-                      rx={node.radius * 0.45}
+                      rx={node.radius * 0.44}
                       fill="#0F172A"
                       stroke={node.color}
-                      strokeWidth={isHovered || isHero ? 3.5 : 2.4}
+                      strokeWidth={isHovered || isHero ? 4.0 : 2.8}
                       filter="url(#star-glow)"
                     />
                   ) : node.nodeType === 'KEYWORD' || node.nodeType === 'KEYWORD_HERO' ? (
                     <rect
-                      x={-(node.radius * 1.75)}
-                      y={-(node.radius * 0.72)}
-                      width={node.radius * 3.5}
-                      height={node.radius * 1.44}
-                      rx={node.radius * 0.72}
-                      fill="#0F172A"
-                      stroke={node.color}
-                      strokeWidth={isHovered || isHero ? 3.0 : 2.0}
-                      filter="url(#star-glow)"
+                      x={-Math.max(66, node.label.length * 8.5 + 18)}
+                      y={node.nodeType === 'KEYWORD_HERO' ? -26 : -20}
+                      width={Math.max(132, node.label.length * 17.0 + 36)}
+                      height={node.nodeType === 'KEYWORD_HERO' ? 52 : 40}
+                      rx={node.nodeType === 'KEYWORD_HERO' ? 26 : 20}
+                      fill={node.nodeType === 'KEYWORD_HERO' ? node.color : '#0F172A'}
+                      stroke={node.nodeType === 'KEYWORD_HERO' ? '#FFFFFF' : node.color}
+                      strokeWidth={isHovered || isHero ? 3.5 : 2.4}
+                      filter={isHero ? 'url(#supernova-glow)' : 'url(#star-glow)'}
                     />
                   ) : (
                     <circle
                       r={node.radius}
-                      fill={isNewlyJoined ? '#FBBF24' : isHero ? node.color : '#0F172A'}
-                      stroke={isNewlyJoined || isHero ? '#FFFFFF' : node.color}
-                      strokeWidth={isHovered || isHero || isNewlyJoined ? 3.6 : 2.4}
+                      fill={
+                        isNewlyJoined
+                          ? '#FBBF24'
+                          : isHero
+                          ? node.color
+                          : node.member?.isRepresentative
+                          ? '#FBBF24'
+                          : '#0F172A'
+                      }
+                      stroke={
+                        isNewlyJoined || isHero || node.member?.isRepresentative
+                          ? '#FFFFFF'
+                          : node.color
+                      }
+                      strokeWidth={isHovered || isHero || isNewlyJoined ? 4.2 : 2.8}
                       filter={
                         isHero || isNewlyJoined ? 'url(#supernova-glow)' : 'url(#star-glow)'
                       }
                     />
                   )}
 
-                  {node.nodeType === 'MEMBER' && !isNewlyJoined && (
-                    <circle
-                      r={node.radius - 4}
-                      fill="#1E293B"
-                      className="pointer-events-none"
-                    />
-                  )}
+                  {node.nodeType === 'MEMBER' &&
+                    !isNewlyJoined &&
+                    !node.member?.isRepresentative && (
+                      <circle
+                        r={node.radius - 4}
+                        fill="#1E293B"
+                        className="pointer-events-none"
+                      />
+                    )}
 
                   {/* Floating "✨ NEW 연결!" Badge Above Newly Arrived Member */}
                   {isNewlyJoined && (
-                    <g transform={`translate(0, ${-(node.radius + 20)})`}>
+                    <g transform={`translate(0, ${-(node.radius + 22)})`}>
                       <rect
-                        x={-44}
-                        y={-11}
-                        width={88}
-                        height={22}
-                        rx={11}
+                        x={-48}
+                        y={-12}
+                        width={96}
+                        height={24}
+                        rx={12}
                         fill="#FBBF24"
                         stroke="#FFFFFF"
-                        strokeWidth={1.5}
+                        strokeWidth={1.8}
                       />
                       <text
                         x={0}
-                        y={4}
+                        y={4.5}
                         textAnchor="middle"
-                        className="text-[10.5px] font-black fill-slate-950 pointer-events-none"
+                        className="text-[11.5px] font-black fill-slate-950 pointer-events-none"
                       >
                         ✨ NEW 연결!
                       </text>
                     </g>
                   )}
 
+                  {/* Center Text for SANS_CORE (이동훈 대표님 at center of SANS) */}
                   {node.nodeType === 'SANS_CORE' && (
-                    <text
-                      y={6}
-                      textAnchor="middle"
-                      className="text-[17px] font-black fill-slate-950 tracking-tight pointer-events-none"
-                    >
-                      SANS
-                    </text>
+                    <g className="pointer-events-none">
+                      <text
+                        y={-9}
+                        textAnchor="middle"
+                        className="text-[13px] font-black fill-slate-900 tracking-wider"
+                      >
+                        SANS
+                      </text>
+                      <text
+                        y={13}
+                        textAnchor="middle"
+                        className="text-[16px] font-black fill-slate-950 tracking-tight"
+                      >
+                        이동훈 대표님
+                      </text>
+                    </g>
                   )}
 
                   {(node.nodeType === 'CLUB' || node.nodeType === 'CLUB_HERO') && node.club && (
                     <foreignObject
-                      x={-16}
-                      y={-16}
-                      width={32}
-                      height={32}
+                      x={-18}
+                      y={-18}
+                      width={36}
+                      height={36}
                       className="pointer-events-none"
                     >
                       <div className="w-full h-full flex items-center justify-center">
                         <ClubIcon
                           name={node.club.icon}
-                          className={node.nodeType === 'CLUB_HERO' ? 'w-7 h-7' : 'w-5 h-5'}
+                          className={node.nodeType === 'CLUB_HERO' ? 'w-8 h-8' : 'w-6 h-6'}
                           style={{ color: node.color }}
                         />
                       </div>
@@ -1479,24 +1499,28 @@ export default function KnowledgeGraph({
 
                   {(node.nodeType === 'TEAM' || node.nodeType === 'TEAM_HERO') && (
                     <text
-                      y={5}
+                      y={6}
                       textAnchor="middle"
-                      className={`font-extrabold pointer-events-none ${
+                      className={`font-black pointer-events-none ${
                         node.nodeType === 'TEAM_HERO'
-                          ? 'text-[16px] fill-slate-950'
-                          : 'text-[12.5px] fill-indigo-300'
+                          ? 'text-[18px] fill-slate-950'
+                          : 'text-[14px] fill-indigo-200'
                       }`}
                     >
                       {node.key}
                     </text>
                   )}
 
+                  {/* High-Contrast Text Inside Keyword Nodes */}
                   {(node.nodeType === 'KEYWORD' || node.nodeType === 'KEYWORD_HERO') && (
                     <text
-                      y={4}
+                      y={5}
                       textAnchor="middle"
-                      style={{ fill: node.nodeType === 'KEYWORD_HERO' ? '#0F172A' : node.color }}
-                      className="text-[11.5px] font-extrabold pointer-events-none"
+                      className={`font-black pointer-events-none ${
+                        node.nodeType === 'KEYWORD_HERO'
+                          ? 'text-[16px] fill-slate-950'
+                          : 'text-[13.5px] fill-white'
+                      }`}
                     >
                       {node.label}
                     </text>
@@ -1504,84 +1528,150 @@ export default function KnowledgeGraph({
 
                   {(node.nodeType === 'MEMBER' || node.nodeType === 'MEMBER_HERO') && (
                     <text
-                      y={4.5}
+                      y={5.5}
                       textAnchor="middle"
-                      className={`font-extrabold pointer-events-none ${
-                        node.nodeType === 'MEMBER_HERO' || isNewlyJoined
-                          ? 'text-[15px] fill-slate-950'
-                          : 'text-[12px] fill-white'
+                      className={`font-black pointer-events-none ${
+                        node.nodeType === 'MEMBER_HERO' ||
+                        isNewlyJoined ||
+                        node.member?.isRepresentative
+                          ? 'text-[16px] fill-slate-950'
+                          : 'text-[14px] fill-white'
                       }`}
                     >
-                      {node.label.slice(0, 3)}
+                      {node.member?.isRepresentative ? '대표님' : node.label.slice(0, 4)}
                     </text>
                   )}
 
-                  {/* Nameplate Label Below Node */}
-                  {node.nodeType !== 'KEYWORD' && (
-                    <g transform={`translate(0, ${node.radius + 16})`}>
+                  {/* Single Clean Label/Badge Below Node (Zero Duplicate Names) */}
+                  {(node.nodeType === 'CLUB' ||
+                    node.nodeType === 'CLUB_HERO' ||
+                    (node.nodeType === 'MEMBER' && node.member?.isRepresentative)) && (
+                    <g transform={`translate(0, ${node.radius + 17})`}>
                       <rect
-                        x={-Math.max(42, node.label.length * 7.2 + 12)}
-                        y={-12}
-                        width={Math.max(84, node.label.length * 14.4 + 24)}
-                        height={24}
-                        rx={8}
-                        fill={isHero || isNewlyJoined ? '#FBBF24' : '#0F172A'}
-                        fillOpacity={0.94}
-                        stroke={isHero || isNewlyJoined ? '#FEF08A' : node.color}
-                        strokeWidth={isHero || isNewlyJoined ? 1.8 : 1.2}
+                        x={-Math.max(44, node.label.length * 7.8 + 12)}
+                        y={-13}
+                        width={Math.max(88, node.label.length * 15.6 + 24)}
+                        height={26}
+                        rx={9}
+                        fill={
+                          isHero || isNewlyJoined || node.member?.isRepresentative
+                            ? '#FBBF24'
+                            : '#0F172A'
+                        }
+                        stroke={
+                          isHero || isNewlyJoined || node.member?.isRepresentative
+                            ? '#FFFFFF'
+                            : node.color
+                        }
+                        strokeWidth={isHero || isNewlyJoined ? 2.0 : 1.5}
+                      />
+                      <text
+                        x={0}
+                        y={4.5}
+                        textAnchor="middle"
+                        className={`text-[13px] font-black pointer-events-none ${
+                          isHero || isNewlyJoined || node.member?.isRepresentative
+                            ? 'fill-slate-950'
+                            : 'fill-white'
+                        }`}
+                      >
+                        {node.label}
+                      </text>
+                    </g>
+                  )}
+
+                  {/* Hero Sub-Label Pill Directly Below Hero Circle */}
+                  {node.subLabel &&
+                    (node.nodeType === 'SANS_CORE' ||
+                      node.nodeType === 'MEMBER_HERO' ||
+                      node.nodeType === 'TEAM_HERO' ||
+                      node.nodeType === 'CLUB_HERO') && (
+                      <g
+                        transform={`translate(0, ${
+                          node.nodeType === 'CLUB_HERO' ? node.radius + 42 : node.radius + 18
+                        })`}
+                      >
+                        <rect
+                          x={-Math.max(70, node.subLabel.length * 6.5 + 14)}
+                          y={-12}
+                          width={Math.max(140, node.subLabel.length * 13.0 + 28)}
+                          height={24}
+                          rx={12}
+                          fill="#0F172A"
+                          stroke={node.nodeType === 'SANS_CORE' ? '#FBBF24' : '#38BDF8'}
+                          strokeWidth={1.5}
+                        />
+                        <text
+                          x={0}
+                          y={4.5}
+                          textAnchor="middle"
+                          className={`text-[12px] font-extrabold pointer-events-none ${
+                            node.nodeType === 'SANS_CORE' ? 'fill-amber-300' : 'fill-cyan-300'
+                          }`}
+                        >
+                          {node.subLabel}
+                        </text>
+                      </g>
+                    )}
+
+                  {/* Connection / Affiliation Badge Pill Below Regular Member Node */}
+                  {node.nodeType === 'MEMBER' &&
+                    node.sharedBadges &&
+                    node.sharedBadges.length > 0 && (
+                      <g
+                        transform={`translate(0, ${
+                          node.member?.isRepresentative ? node.radius + 40 : node.radius + 15
+                        })`}
+                      >
+                        <rect
+                          x={-58}
+                          y={-10}
+                          width={116}
+                          height={20}
+                          rx={10}
+                          fill="#0F172A"
+                          stroke={node.sharedBadges[0].color || '#38BDF8'}
+                          strokeWidth={1.3}
+                        />
+                        <text
+                          x={0}
+                          y={4}
+                          textAnchor="middle"
+                          style={{ fill: node.sharedBadges[0].color || '#38BDF8' }}
+                          className="text-[11px] font-extrabold pointer-events-none"
+                        >
+                          {node.sharedBadges
+                            .slice(0, 2)
+                            .map((b) => b.text)
+                            .join(' · ')}
+                          {node.sharedBadges.length > 2
+                            ? ` +${node.sharedBadges.length - 2}`
+                            : ''}
+                        </text>
+                      </g>
+                    )}
+
+                  {/* Sub-label for KEYWORD_HERO */}
+                  {node.nodeType === 'KEYWORD_HERO' && node.subLabel && (
+                    <g transform="translate(0, 42)">
+                      <rect
+                        x={-68}
+                        y={-11}
+                        width={136}
+                        height={22}
+                        rx={11}
+                        fill="#0F172A"
+                        stroke={node.color}
+                        strokeWidth={1.4}
                       />
                       <text
                         x={0}
                         y={4}
                         textAnchor="middle"
-                        className={`text-[12px] font-extrabold pointer-events-none ${
-                          isHero || isNewlyJoined ? 'fill-slate-950' : 'fill-white'
-                        }`}
+                        className="text-[12px] font-extrabold fill-cyan-300 pointer-events-none"
                       >
-                        {node.label}
+                        {node.subLabel}
                       </text>
-
-                      {node.subLabel && isHero && (
-                        <text
-                          x={0}
-                          y={23}
-                          textAnchor="middle"
-                          className="text-[11px] font-extrabold fill-cyan-300 pointer-events-none"
-                        >
-                          {node.subLabel}
-                        </text>
-                      )}
-
-                      {node.sharedBadges && node.sharedBadges.length > 0 && !isHero && (
-                        <g transform="translate(0, 19)">
-                          <rect
-                            x={-55}
-                            y={-9}
-                            width={110}
-                            height={18}
-                            rx={9}
-                            fill="#1E293B"
-                            stroke={node.sharedBadges[0].color || '#38BDF8'}
-                            strokeOpacity={0.5}
-                            strokeWidth={1}
-                          />
-                          <text
-                            x={0}
-                            y={3.5}
-                            textAnchor="middle"
-                            style={{ fill: node.sharedBadges[0].color || '#38BDF8' }}
-                            className="text-[10px] font-extrabold pointer-events-none"
-                          >
-                            {node.sharedBadges
-                              .slice(0, 2)
-                              .map((b) => b.text)
-                              .join(' · ')}
-                            {node.sharedBadges.length > 2
-                              ? ` +${node.sharedBadges.length - 2}`
-                              : ''}
-                          </text>
-                        </g>
-                      )}
                     </g>
                   )}
                 </g>

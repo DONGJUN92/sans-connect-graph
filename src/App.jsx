@@ -164,7 +164,7 @@ export default function App() {
         .map((m) => m.name)
         .join(', ')})입니다.`;
     }
-    return `산스 전체 연결 화면입니다. 중심에 이동훈 대표님이 계시며, 16개 클럽과 총 ${members.length}명의 산스 식구들이 하나로 연결되어 있습니다.`;
+    return `산스 전체 연결 화면입니다. 중심에 이동훈 대표님이 계시며, ${SANS_CLUBS.length}개 클럽과 총 ${members.length}명의 산스 식구들이 하나로 연결되어 있습니다.`;
   }, [focus, members]);
 
   // Voice announcement on focus change
@@ -387,10 +387,10 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* 16 Clubs Grid */}
+                {/* All Clubs Grid */}
                 <div className="space-y-2">
                   <div className="text-xs font-extrabold text-slate-400">
-                    🏛️ 16개 클럽 둘러보기
+                    🏛️ {SANS_CLUBS.length}개 클럽 둘러보기
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     {SANS_CLUBS.map((club) => {
@@ -539,7 +539,7 @@ export default function App() {
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-400 truncate mt-0.5 max-w-xs">
-                        {m.isRepresentative ? '전체 16개 클럽 · 전체 조 연결' : m.clubs.join(' · ')}
+                        {m.isRepresentative ? `전체 ${SANS_CLUBS.length}개 클럽 · 전체 조 연결` : m.clubs.join(' · ')}
                       </div>
                     </div>
                     <span className="text-xs font-black text-cyan-400 shrink-0">

@@ -16,7 +16,11 @@ import {
   Sparkles,
   Languages,
   Waves,
-  Users
+  Users,
+  BookHeart,
+  Mountain,
+  Palette,
+  TrendingUp
 } from 'lucide-react';
 
 const ICON_MAP = {
@@ -36,7 +40,11 @@ const ICON_MAP = {
   Sparkles,
   Languages,
   Waves,
-  Users
+  Users,
+  BookHeart,
+  Mountain,
+  Palette,
+  TrendingUp
 };
 
 export default function ClubIcon({ name, className = 'w-5 h-5', style }) {

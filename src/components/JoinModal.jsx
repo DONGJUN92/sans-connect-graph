@@ -14,7 +14,8 @@ import {
   Volume2,
   VolumeX,
   Mic,
-  Zap
+  Zap,
+  Info
 } from 'lucide-react';
 import {
   speakKorean,
@@ -37,11 +38,11 @@ export default function JoinModal({
   onEnableVoice,
   latestLiveJoin
 }) {
-  // Progressive steps: 1 (이름) -> 2 (조) -> 3 (클럽) -> 4 (마음 키워드)
+  // Progressive steps: 1 (이름) -> 2 (조 - 필수) -> 3 (클럽 - 선택 항목) -> 4 (마음 키워드)
   const [step, setStep] = useState(1);
 
   const [name, setName] = useState(initialName || '');
-  const [selectedTeam, setSelectedTeam] = useState('5조');
+  const [selectedTeam, setSelectedTeam] = useState(''); // Empty by default; REQUIRED in Step 2
   const [selectedClubs, setSelectedClubs] = useState([]);
   const [selectedKeywords, setSelectedKeywords] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
@@ -51,121 +52,94 @@ export default function JoinModal({
   const [isListening, setIsListening] = useState(false);
   const [voiceStatusText, setVoiceStatusText] = useState('');
 
+  // Reset to initial state on modal open
   useEffect(() => {
     if (isOpen) {
       setStep(1);
       setErrorMsg('');
       setVoiceStatusText('');
-      if (initialName) {
-        setName(initialName);
-        const found = members.find((m) => m.name === initialName.trim());
-        if (found) {
-          applyMemberData(found, false);
-        }
-      }
+      setName(initialName || '');
+      setSelectedTeam('');
+      setSelectedClubs([]);
+      setSelectedKeywords([]);
+      setLoadedMember(null);
     } else {
       stopVoiceRecognition();
       setIsListening(false);
     }
   }, [isOpen, initialName]);
 
-  // Speak step guidance when step changes and voice mode is active
+  // Voice guidance for each step
   useEffect(() => {
     if (!isOpen || !voiceEnabled) return;
     if (step === 1) {
       speakKorean(
-        '이름 입력 화면입니다. 화면 위쪽의 말로 이름 찾기 큰 버튼을 누르고 이름을 말씀하시거나, 아래 명단에서 이름을 눌러주세요.'
+        '이름 입력 화면입니다. 말로 이름 찾기 큰 버튼을 누르고 이름을 말씀하시거나, 아래 입력창에 이름을 적어주세요. 동명이인 구분을 위해 다음 단계에서 소속 조를 필수로 선택합니다.'
       );
     } else if (step === 2) {
       speakKorean(
-        `2단계, 몇 조인지 고르는 화면입니다. 말로 조 선택하기 버튼을 누르고 5조처럼 말씀하시거나, 아래 목록에서 골라주세요. 현재 ${selectedTeam}가 선택되어 있습니다.`
+        `${name.trim()}님, 소속 조 선택 화면입니다. 1조부터 20조 중에서 몇 조인지 필수로 골라주세요. 동명이인이 있을 수 있어 조를 선택하셔야 기존 정보가 확인됩니다.`
       );
     } else if (step === 3) {
       speakKorean(
-        '3단계, 클럽 선택 화면입니다. 말로 클럽 고르기 버튼을 누르고 멘토링, 스피치처럼 말씀하시거나, 아래 목록에서 활동 클럽을 골라주세요.'
+        '3단계, 활동 클럽 선택 화면입니다. 클럽은 선택 사항이므로 소속 클럽이 없으시면 아무것도 고르지 않고 다음으로 넘어가셔도 됩니다.'
       );
     } else if (step === 4) {
       speakKorean(
-        '마지막 4단계, 마음 키워드 선택 화면입니다. 위쪽의 추천 키워드 자동 선택 버튼을 누르시면 바로 완료됩니다.'
+        '마지막 4단계, 마음 키워드 선택 화면입니다. 위쪽의 추천 키워드로 바로 시작하기 버튼을 누르시면 바로 완료됩니다.'
       );
     }
   }, [step, isOpen, voiceEnabled]);
 
-  const applyMemberData = (memberObj, shouldSpeak = true) => {
-    if (!memberObj) return;
-    setName(memberObj.name);
-    setSelectedTeam(memberObj.team || '5조');
-    setSelectedClubs([...(memberObj.clubs || [])]);
-    setSelectedKeywords([...(memberObj.keywords || [])]);
-    setLoadedMember(memberObj);
+  // Handle Team Selection in Step 2: ONLY look up existing member when BOTH name and team match!
+  const handleSelectTeam = (teamName) => {
+    setSelectedTeam(teamName);
     setErrorMsg('');
 
-    if (shouldSpeak) {
+    const cleanName = name.trim();
+    if (!cleanName) return;
+
+    // Strict matching by BOTH name AND team (or allTeams for representative)
+    const existing = members.find(
+      (m) =>
+        m.name.trim() === cleanName &&
+        (m.team === teamName || m.allTeams || teamName === '전체 조')
+    );
+
+    if (existing) {
+      setLoadedMember(existing);
+      setSelectedClubs([...(existing.clubs || [])]);
+      setSelectedKeywords([...(existing.keywords || [])]);
       speakKorean(
-        `${memberObj.name}님 반갑습니다. ${memberObj.team}, ${memberObj.clubs.join(
-          ', '
-        )} 정보를 불러왔습니다. 바로 내 연결 보기 큰 버튼을 누르시면 연결된 분들을 음성으로 안내해 드립니다.`,
+        `[${teamName}] ${cleanName}님의 기존 등록 정보를 찾았습니다. 바로 내 연결 보기 버튼을 누르시면 결과를 바로 확인하실 수 있고, 수정 버튼을 누르시면 클럽과 키워드를 변경하실 수 있습니다.`,
         true
       );
+    } else {
+      setLoadedMember(null);
+      // Clean slate for new participant
+      setSelectedClubs([]);
+      setSelectedKeywords([]);
+      speakKorean(`${teamName} 선택 완료.`, true);
     }
   };
 
-  // Automatically check if typed name matches an existing member
-  useEffect(() => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setLoadedMember(null);
-      return;
-    }
-    const exact = members.find((m) => m.name === trimmed);
-    if (exact) {
-      setSelectedTeam(exact.team || '5조');
-      setSelectedClubs([...(exact.clubs || [])]);
-      setSelectedKeywords([...(exact.keywords || [])]);
-      if (!loadedMember || loadedMember.name !== exact.name) {
-        setLoadedMember(exact);
-        speakKorean(
-          `${exact.name}님의 정보를 찾았습니다. ${exact.team}, ${exact.clubs.join(', ')} 소속입니다.`
-        );
-      }
-      setErrorMsg('');
-    } else if (loadedMember && loadedMember.name !== trimmed) {
-      setLoadedMember(null);
-      setSelectedClubs([]);
-      setSelectedKeywords([]);
-    }
-  }, [name, members]);
-
-  const matchingMembers = useMemo(() => {
-    const q = name.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        (m.team && m.team.toLowerCase().includes(q)) ||
-        m.clubs.some((c) => c.toLowerCase().includes(q))
-    );
-  }, [name, members]);
-
-  if (!isOpen) return null;
-
-  // Voice Input Handler for Step 1 (Name)
+  // Step 1 Voice Input: captures name only and moves to Step 2 (Team selection)
   const handleVoiceNameInput = () => {
     if (onEnableVoice) onEnableVoice();
-    setVoiceStatusText('이름을 말씀해 주세요 (예: 신동준, 노수림)');
+    setVoiceStatusText('이름을 말씀해 주세요 (예: 신동준)');
     startVoiceRecognition({
       promptText: '삐 소리 후 이름을 말씀해 주세요.',
       onStateChange: setIsListening,
       onResult: (spoken) => {
-        const { existing, cleanedName } = parseSpokenMember(spoken, members);
-        if (existing) {
-          setVoiceStatusText(`"${existing.name}"님을 찾았습니다!`);
-          applyMemberData(existing, true);
-        } else if (cleanedName) {
-          setName(cleanedName);
-          setVoiceStatusText(`"${cleanedName}"님으로 입력되었습니다.`);
+        const { cleanedName } = parseSpokenMember(spoken, members);
+        const finalName = cleanedName || spoken.trim();
+        if (finalName) {
+          setName(finalName);
+          setSelectedTeam('');
+          setLoadedMember(null);
+          setVoiceStatusText(`"${finalName}"님 입력 완료!`);
           speakKorean(
-            `${cleanedName}님으로 입력되었습니다. 다음은 몇 조인지 고르는 화면으로 이동합니다.`,
+            `${finalName}님 반갑습니다. 동명이인 구분을 위해 몇 조인지 필수로 선택해 주세요.`,
             true
           );
           setStep(2);
@@ -175,7 +149,7 @@ export default function JoinModal({
     });
   };
 
-  // Voice Input Handler for Step 2 (Team)
+  // Step 2 Voice Input: captures team
   const handleVoiceTeamInput = () => {
     if (onEnableVoice) onEnableVoice();
     setVoiceStatusText('몇 조인지 말씀해 주세요 (예: 5조)');
@@ -185,10 +159,8 @@ export default function JoinModal({
       onResult: (spoken) => {
         const parsedTeam = parseSpokenTeam(spoken);
         if (parsedTeam) {
-          setSelectedTeam(parsedTeam);
+          handleSelectTeam(parsedTeam);
           setVoiceStatusText(`${parsedTeam} 선택 완료!`);
-          speakKorean(`${parsedTeam}가 선택되었습니다. 다음 클럽 선택 화면으로 이동합니다.`, true);
-          setStep(3);
         } else {
           const msg = `"${spoken}"에서 조 번호를 찾지 못했습니다. 1조부터 20조 사이로 다시 말씀해 주세요.`;
           setVoiceStatusText(msg);
@@ -199,12 +171,12 @@ export default function JoinModal({
     });
   };
 
-  // Voice Input Handler for Step 3 (Clubs)
+  // Step 3 Voice Input: captures clubs (optional)
   const handleVoiceClubInput = () => {
     if (onEnableVoice) onEnableVoice();
-    setVoiceStatusText('활동 중인 클럽 이름을 말씀해 주세요 (예: 멘토링, 스피치)');
+    setVoiceStatusText('활동 중인 클럽 이름을 말씀해 주세요 (예: 멘토링, 인생책편데)');
     startVoiceRecognition({
-      promptText: '삐 소리 후 활동하시는 클럽 이름을 말씀해 주세요. 예: 멘토링, 스피치',
+      promptText: '삐 소리 후 활동하시는 클럽 이름을 말씀해 주세요.',
       onStateChange: setIsListening,
       onResult: (spoken) => {
         const matchedClubs = parseSpokenClubs(spoken, SANS_CLUBS);
@@ -217,7 +189,7 @@ export default function JoinModal({
             true
           );
         } else {
-          const msg = `"${spoken}"에서 클럽 이름을 찾지 못했습니다. 멘토링, 스피치, AI처럼 말씀해 주세요.`;
+          const msg = `"${spoken}"에서 클럽 이름을 찾지 못했습니다. 목록에서 골라주시거나 다음으로 넘어가셔도 됩니다.`;
           setVoiceStatusText(msg);
           speakKorean(msg, true);
         }
@@ -226,7 +198,7 @@ export default function JoinModal({
     });
   };
 
-  // Voice Input Handler for Step 4 (Keywords)
+  // Step 4 Voice Input: captures keywords
   const handleVoiceKeywordInput = () => {
     if (onEnableVoice) onEnableVoice();
     setVoiceStatusText('마음에 드는 단어를 말씀해 주세요 (예: 동료, 성장, 배려)');
@@ -251,7 +223,7 @@ export default function JoinModal({
     });
   };
 
-  // Fast 1-Tap Auto-Complete for Visually Impaired Users in Step 4
+  // 1-Tap Fast Completion with recommended keywords
   const handleQuickCompleteWithRecommendedKeywords = async () => {
     const picks =
       selectedKeywords.length > 0
@@ -263,7 +235,7 @@ export default function JoinModal({
       await onSubmitMember({
         name: name.trim(),
         team: selectedTeam,
-        clubs: selectedClubs,
+        clubs: selectedClubs, // Can be []
         keywords: picks
       });
       onClose();
@@ -311,7 +283,7 @@ export default function JoinModal({
     setErrorMsg('');
     if (step === 1) {
       if (!name.trim()) {
-        const msg = '이름을 입력하거나 아래 명단에서 선택해 주세요.';
+        const msg = '이름을 먼저 입력해 주세요.';
         setErrorMsg(msg);
         speakKorean(msg, true);
         return;
@@ -319,19 +291,14 @@ export default function JoinModal({
       setStep(2);
     } else if (step === 2) {
       if (!selectedTeam) {
-        const msg = '몇 조인지 골라주세요.';
+        const msg = '몇 조에 속해 계신지 필수로 골라주세요. (1조~20조)';
         setErrorMsg(msg);
         speakKorean(msg, true);
         return;
       }
       setStep(3);
     } else if (step === 3) {
-      if (selectedClubs.length === 0) {
-        const msg = '클럽을 1개 이상 골라주세요.';
-        setErrorMsg(msg);
-        speakKorean(msg, true);
-        return;
-      }
+      // Clubs are OPTIONAL! Always advance to Step 4
       setStep(4);
     }
   };
@@ -344,11 +311,12 @@ export default function JoinModal({
       setErrorMsg('이름을 알려주세요.');
       return;
     }
-    if (selectedClubs.length === 0) {
-      setStep(3);
-      setErrorMsg('클럽을 1개 이상 골라주세요.');
+    if (!selectedTeam) {
+      setStep(2);
+      setErrorMsg('소속 조를 필수로 선택해 주세요.');
       return;
     }
+    // Clubs are OPTIONAL!
     if (selectedKeywords.length === 0) {
       const msg = '마음에 와닿는 말을 1개 이상 골라주세요.';
       setErrorMsg(msg);
@@ -361,7 +329,7 @@ export default function JoinModal({
       await onSubmitMember({
         name: cleanName,
         team: selectedTeam,
-        clubs: selectedClubs,
+        clubs: selectedClubs, // Can be empty array []
         keywords: selectedKeywords
       });
       onClose();
@@ -374,6 +342,18 @@ export default function JoinModal({
     activeCategory === 'all'
       ? KEYWORD_CATEGORIES
       : KEYWORD_CATEGORIES.filter((c) => c.id === activeCategory);
+
+  const matchingMembers = useMemo(() => {
+    const q = name.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.team && m.team.toLowerCase().includes(q))
+    );
+  }, [name, members]);
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -471,9 +451,9 @@ export default function JoinModal({
             )}
 
             <span className="text-xs font-extrabold text-slate-500">
-              {step === 1 && '1단계 · 이름 찾기'}
-              {step === 2 && '2단계 · 조 선택'}
-              {step === 3 && '3단계 · 클럽 선택'}
+              {step === 1 && '1단계 · 이름 입력'}
+              {step === 2 && '2단계 · 소속 조 선택 (필수)'}
+              {step === 3 && '3단계 · 클럽 선택 (선택 사항)'}
               {step === 4 && '4단계 · 마음 키워드'} ({step}/4)
             </span>
           </div>
@@ -510,7 +490,7 @@ export default function JoinModal({
             </div>
           )}
 
-          {/* ==================== STEP 1: 이름 입력 및 말로 찾기 ==================== */}
+          {/* ==================== STEP 1: 이름 입력 ==================== */}
           {step === 1 && (
             <div className="space-y-5">
               <div className="space-y-1.5">
@@ -521,15 +501,15 @@ export default function JoinModal({
                   반가워요! 👋 <span className="text-blue-600">이름</span>을 알려주세요
                 </h2>
                 <p className="text-sm sm:text-base text-slate-600 font-medium">
-                  말로 이름을 부르거나 아래 명단에서 내 이름을 누르면 정보가 바로 채워져요.
+                  동명이인을 정확히 구분하기 위해, 다음 단계에서 소속 조를 필수로 확인해요.
                 </p>
               </div>
 
-              {/* GIANT VOICE INPUT BUTTON FOR STEP 1 (Essential for Visually Impaired Users) */}
+              {/* Voice Input Button for Step 1 */}
               <button
                 type="button"
                 onClick={handleVoiceNameInput}
-                aria-label="말로 내 이름 찾기 또는 입력하기. 누른 뒤 삐 소리가 나면 이름을 말씀해 주세요."
+                aria-label="말로 내 이름 입력하기. 누른 뒤 삐 소리가 나면 이름을 말씀해 주세요."
                 className={`w-full py-4 px-5 rounded-2xl border-2 text-base sm:text-lg font-black flex items-center justify-center gap-3 shadow-md transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
                   isListening
                     ? 'bg-rose-600 border-rose-700 text-white animate-pulse'
@@ -539,8 +519,8 @@ export default function JoinModal({
                 <Mic className="w-6 h-6 shrink-0" />
                 <span>
                   {isListening
-                    ? '🎙️ 듣고 있어요... 지금 이름을 말씀해 주세요!'
-                    : '🎙️ 눌러서 말로 내 이름 찾기 (음성 입력)'}
+                    ? '🎙️ 듣고 있어요... 이름을 말씀해 주세요!'
+                    : '🎙️ 눌러서 말로 내 이름 입력하기'}
                 </span>
               </button>
 
@@ -554,7 +534,7 @@ export default function JoinModal({
                 </div>
               )}
 
-              {/* Big Input Box */}
+              {/* Name Input Box */}
               <div className="relative">
                 <label htmlFor="member-name-input" className="sr-only">
                   이름 직접 입력
@@ -570,15 +550,10 @@ export default function JoinModal({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      if (loadedMember && onQuickViewMember) {
-                        onQuickViewMember(loadedMember.name);
-                        onClose();
-                      } else {
-                        handleNextStep();
-                      }
+                      handleNextStep();
                     }
                   }}
-                  placeholder="또는 여기에 이름을 적어주세요 (예: 신동준)"
+                  placeholder="여기에 이름을 적어주세요 (예: 신동준)"
                   className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-300 focus:bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none text-lg sm:text-xl font-extrabold text-slate-900 placeholder:text-slate-400 placeholder:font-semibold transition"
                 />
                 {name && (
@@ -597,122 +572,70 @@ export default function JoinModal({
                 )}
               </div>
 
-              {/* Instant Existing Member Recognition Card */}
-              {loadedMember && (
-                <div
-                  role="region"
-                  aria-live="polite"
-                  aria-label={`${loadedMember.name}님의 등록 정보`}
-                  className="p-5 rounded-3xl bg-blue-50 border-2 border-blue-300 space-y-4 shadow-sm"
-                >
-                  <div className="space-y-1">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-600 text-white text-xs font-extrabold">
-                      <UserCheck className="w-3.5 h-3.5" aria-hidden="true" />
-                      등록된 정보를 찾았어요!
-                    </span>
-                    <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 pt-1">
-                      {loadedMember.name}님 ({selectedTeam} · 클럽 {selectedClubs.length}개)
-                    </h3>
-                    <p className="text-xs sm:text-sm font-bold text-slate-700">
-                      소속 클럽: {selectedClubs.join(', ')}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onQuickViewMember) {
-                          onQuickViewMember(loadedMember.name);
-                        }
-                        onClose();
-                      }}
-                      aria-label={`${loadedMember.name}님의 연결 바로 보기 및 음성으로 듣기`}
-                      className="flex-1 py-4 px-5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-base sm:text-lg font-black shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition focus-visible:ring-4 focus-visible:ring-amber-400"
-                    >
-                      <Sparkles className="w-5 h-5" aria-hidden="true" />
-                      <span>바로 내 연결 보기</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setStep(2)}
-                      aria-label={`${loadedMember.name}님의 조, 클럽, 키워드 정보 수정하기`}
-                      className="py-4 px-5 rounded-2xl bg-white hover:bg-slate-100 text-slate-800 border-2 border-slate-300 text-sm sm:text-base font-extrabold flex items-center justify-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-blue-500"
-                    >
-                      <Edit3 className="w-4 h-4" aria-hidden="true" />
-                      <span>내 정보 수정하기</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Member List: Automatically switches to 1-Column Giant Buttons when Voice Mode is ON */}
+              {/* Quick Select Name from Registered List */}
               <div className="space-y-2.5 pt-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm font-extrabold text-slate-700">
-                    👇 명단에서 내 이름 바로 누르기 ({matchingMembers.length}명)
+                    👇 명단에서 내 이름을 눌러도 돼요 ({matchingMembers.length}명)
                   </span>
                 </div>
                 <div
                   role="list"
-                  aria-label="등록된 산스 구성원 명단"
-                  className={`grid gap-2.5 max-h-60 overflow-y-auto pr-1 ${
+                  aria-label="등록된 산스 구성원 이름 목록"
+                  className={`grid gap-2.5 max-h-56 overflow-y-auto pr-1 ${
                     voiceEnabled ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'
                   }`}
                 >
-                  {matchingMembers.map((m) => {
-                    const isSelected = loadedMember?.name === m.name;
-                    return (
-                      <button
-                        type="button"
-                        key={m.name}
-                        aria-pressed={isSelected}
-                        aria-label={`${m.name}, ${m.team}, ${m.clubs.join(', ')}. 누르면 정보를 불러옵니다.`}
-                        onClick={() => applyMemberData(m, true)}
-                        className={`rounded-2xl border-2 text-left transition flex items-center justify-between focus-visible:ring-4 focus-visible:ring-amber-400 ${
-                          voiceEnabled ? 'p-4 min-h-[64px]' : 'p-3'
-                        } ${
-                          isSelected
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                            : 'bg-slate-50 hover:bg-blue-50/60 border-slate-200 text-slate-900'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div
-                            className={`font-extrabold truncate ${
-                              voiceEnabled ? 'text-lg' : 'text-sm sm:text-base'
-                            }`}
-                          >
-                            {m.name}
-                          </div>
-                          <div
-                            className={`font-semibold truncate ${
-                              voiceEnabled ? 'text-sm' : 'text-xs'
-                            } ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}
-                          >
-                            {m.team} · {m.clubs[0] || '클럽'}
-                            {m.clubs.length > 1 ? ` 외 ${m.clubs.length - 1}` : ''}
-                          </div>
+                  {matchingMembers.map((m) => (
+                    <button
+                      type="button"
+                      key={`${m.name}-${m.team}`}
+                      aria-label={`${m.name}, ${m.team}. 누르면 이름이 입력되고 조 선택으로 이동합니다.`}
+                      onClick={() => {
+                        setName(m.name);
+                        setSelectedTeam('');
+                        setLoadedMember(null);
+                        setStep(2);
+                        speakKorean(`${m.name}님 입력 완료. 몇 조인지 필수로 골라주세요.`, true);
+                      }}
+                      className={`rounded-2xl border-2 text-left transition flex items-center justify-between focus-visible:ring-4 focus-visible:ring-amber-400 ${
+                        voiceEnabled ? 'p-4 min-h-[64px]' : 'p-3'
+                      } bg-slate-50 hover:bg-blue-50/70 border-slate-200 text-slate-900`}
+                    >
+                      <div className="min-w-0">
+                        <div
+                          className={`font-extrabold truncate ${
+                            voiceEnabled ? 'text-lg' : 'text-sm sm:text-base'
+                          }`}
+                        >
+                          {m.name}
                         </div>
-                        {isSelected ? (
-                          <Check className="w-5 h-5 text-white shrink-0" aria-hidden="true" />
-                        ) : (
-                          <span className="text-xs font-extrabold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-lg shrink-0">
-                            선택
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                        <div
+                          className={`font-semibold truncate text-slate-500 ${
+                            voiceEnabled ? 'text-sm' : 'text-xs'
+                          }`}
+                        >
+                          {m.team}
+                        </div>
+                      </div>
+                      <span className="text-xs font-extrabold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-lg shrink-0">
+                        선택
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ==================== STEP 2: 소속 조 선택 (1조 ~ 20조) ==================== */}
+          {/* ==================== STEP 2: 소속 조 선택 (1조 ~ 20조 - 필수!) ==================== */}
           {step === 2 && (
             <div className="space-y-5">
               <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-black mb-1">
+                  <Info className="w-3.5 h-3.5" />
+                  <span>동명이인 확인을 위해 필수로 선택해 주세요</span>
+                </div>
                 <h2
                   id="onboarding-step-heading"
                   className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug"
@@ -720,11 +643,11 @@ export default function JoinModal({
                   <span className="text-blue-600">{name.trim()}</span>님은 몇 조이신가요?
                 </h2>
                 <p className="text-sm sm:text-base text-slate-600 font-medium">
-                  말로 조 번호를 부르거나 아래에서 골라주세요. 같은 조 식구들과 바로 연결돼요.
+                  조를 선택하면, 이전에 등록된 정보가 있을 경우 자동으로 확인해 드려요.
                 </p>
               </div>
 
-              {/* Giant Voice Input Button for Step 2 */}
+              {/* Voice Input Button for Step 2 */}
               <button
                 type="button"
                 onClick={handleVoiceTeamInput}
@@ -753,9 +676,10 @@ export default function JoinModal({
                 </div>
               )}
 
+              {/* Team Buttons (1조 ~ 20조) */}
               <div
                 role="radiogroup"
-                aria-label="1조부터 20조까지 소속 조 선택"
+                aria-label="1조부터 20조까지 소속 조 선택 (필수)"
                 className={`grid gap-2.5 ${
                   voiceEnabled ? 'grid-cols-2' : 'grid-cols-4 sm:grid-cols-5'
                 }`}
@@ -769,16 +693,12 @@ export default function JoinModal({
                       role="radio"
                       aria-checked={isSelected}
                       aria-label={`${t} ${isSelected ? '선택됨' : ''}`}
-                      onClick={() => {
-                        setSelectedTeam(t);
-                        setErrorMsg('');
-                        speakKorean(`${t} 선택됨`, true);
-                      }}
+                      onClick={() => handleSelectTeam(t)}
                       className={`py-4 rounded-2xl text-base sm:text-lg font-extrabold border-2 transition flex items-center justify-center focus-visible:ring-4 focus-visible:ring-amber-400 ${
                         voiceEnabled ? 'min-h-[64px] text-xl' : ''
                       } ${
                         isSelected
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 scale-[1.02]'
                           : 'bg-slate-50 hover:bg-blue-50/50 text-slate-800 border-slate-200'
                       }`}
                     >
@@ -787,13 +707,80 @@ export default function JoinModal({
                   );
                 })}
               </div>
+
+              {/* ONLY SHOW ALERT CARD WHEN (NAME + TEAM) MATCH AN EXISTING MEMBER! */}
+              {loadedMember && (
+                <div
+                  role="region"
+                  aria-live="polite"
+                  aria-label={`기존 등록된 ${loadedMember.name}님의 정보`}
+                  className="p-5 rounded-3xl bg-amber-50 border-2 border-amber-300 space-y-3.5 shadow-sm"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="p-2 rounded-2xl bg-amber-400 text-slate-950 font-bold shrink-0">
+                      <UserCheck className="w-5 h-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-900 text-xs font-black">
+                        기존 등록 정보 확인 완료!
+                      </span>
+                      <h3 className="text-base sm:text-lg font-black text-slate-900 pt-1">
+                        [{selectedTeam}] {name.trim()}님의 정보를 찾았어요
+                      </h3>
+                      <div className="text-xs sm:text-sm text-slate-700 mt-1 space-y-0.5 font-medium">
+                        <div>
+                          활동 클럽:{' '}
+                          <strong className="text-slate-900 font-bold">
+                            {loadedMember.clubs.length > 0
+                              ? loadedMember.clubs.join(', ')
+                              : '소속 클럽 없음'}
+                          </strong>
+                        </div>
+                        <div>
+                          마음 키워드:{' '}
+                          <strong className="text-emerald-700 font-bold">
+                            {loadedMember.keywords.join(' ')}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onQuickViewMember) {
+                          onQuickViewMember(loadedMember.name);
+                        }
+                        onClose();
+                      }}
+                      className="flex-1 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-black shadow-md flex items-center justify-center gap-2 transition focus-visible:ring-4 focus-visible:ring-amber-400"
+                    >
+                      <Sparkles className="w-4 h-4 shrink-0" />
+                      <span>이 정보 그대로 바로 내 연결 보기</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStep(3)}
+                      className="py-3.5 px-4 rounded-xl bg-white hover:bg-slate-100 text-slate-800 border-2 border-slate-300 text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-blue-500"
+                    >
+                      <Edit3 className="w-4 h-4 shrink-0" />
+                      <span>클럽·키워드 수정하며 다음으로</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ==================== STEP 3: 활동 클럽 선택 (16개 클럽) ==================== */}
+          {/* ==================== STEP 3: 활동 클럽 선택 (선택 사항 / 필수 아님!) ==================== */}
           {step === 3 && (
             <div className="space-y-4">
               <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-black mb-1">
+                  <span>선택 항목 · 소속 클럽이 없어도 괜찮아요</span>
+                </div>
                 <h2
                   id="onboarding-step-heading"
                   className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-snug"
@@ -801,12 +788,12 @@ export default function JoinModal({
                   어떤 <span className="text-blue-600">클럽</span>에서 활동하시나요?
                 </h2>
                 <p className="text-sm sm:text-base text-slate-600 font-medium">
-                  말로 클럽 이름을 부르거나 아래에서 모두 골라주세요. (현재{' '}
+                  소속 클럽이 없으시면 아무것도 선택하지 않고 다음으로 넘어가셔도 돼요. (현재{' '}
                   <strong className="text-blue-600">{selectedClubs.length}개</strong> 선택)
                 </p>
               </div>
 
-              {/* Giant Voice Input Button for Step 3 */}
+              {/* Step 3 Voice Input */}
               <button
                 type="button"
                 onClick={handleVoiceClubInput}
@@ -821,7 +808,7 @@ export default function JoinModal({
                 <span>
                   {isListening
                     ? '🎙️ 듣고 있어요... 클럽 이름을 말씀해 주세요!'
-                    : '🎙️ 눌러서 말로 클럽 고르기 (예: "멘토링, 스피치")'}
+                    : '🎙️ 눌러서 말로 클럽 고르기 (예: "멘토링, 인생책편데")'}
                 </span>
               </button>
 
@@ -835,9 +822,10 @@ export default function JoinModal({
                 </div>
               )}
 
+              {/* 20 Clubs Grid */}
               <div
                 role="group"
-                aria-label="산스 16개 클럽 선택"
+                aria-label="산스 20개 클럽 선택 (선택 사항)"
                 className={`grid gap-2.5 max-h-[46vh] overflow-y-auto pr-1 ${
                   voiceEnabled ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'
                 }`}
@@ -853,7 +841,7 @@ export default function JoinModal({
                         isSelected ? '선택됨. 다시 누르면 해제됩니다.' : '선택 안 됨. 누르면 선택됩니다.'
                       }`}
                       onClick={() => toggleClub(club.name)}
-                      className={`text-left p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 focus-visible:ring-4 focus-visible:ring-amber-400 ${
+                      className={`text-left p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 focus-visible:ring-4 focus-visible:ring-amber-400 ${
                         voiceEnabled ? 'min-h-[68px]' : ''
                       } ${
                         isSelected
@@ -919,7 +907,7 @@ export default function JoinModal({
                 </p>
               </div>
 
-              {/* ONE-TAP FAST AUTO-COMPLETE & VOICE INPUT FOR STEP 4 */}
+              {/* Fast 1-Tap Auto-Complete & Voice Input */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   type="button"
@@ -1050,16 +1038,19 @@ export default function JoinModal({
             <button
               type="button"
               onClick={handleNextStep}
-              disabled={step === 1 && !name.trim()}
+              disabled={(step === 1 && !name.trim()) || (step === 2 && !selectedTeam)}
               className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-base sm:text-lg font-extrabold shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition focus-visible:ring-4 focus-visible:ring-amber-400"
             >
               <span>
-                {step === 1 && '다음: 몇 조인지 고르기'}
-                {step === 2 && `${selectedTeam} 선택 완료 · 다음으로`}
+                {step === 1 && '다음: 몇 조인지 고르기 (필수)'}
+                {step === 2 &&
+                  (selectedTeam
+                    ? `${selectedTeam} 선택 완료 · 다음: 클럽 선택으로`
+                    : '몇 조인지 필수로 골라주세요 (1조~20조)')}
                 {step === 3 &&
                   (selectedClubs.length > 0
                     ? `클럽 ${selectedClubs.length}개 선택 완료 · 다음으로`
-                    : '활동 클럽을 1개 이상 골라주세요')}
+                    : '소속 클럽 없이 다음으로 (건너뛰기)')}
               </span>
               <ArrowRight className="w-5 h-5" aria-hidden="true" />
             </button>

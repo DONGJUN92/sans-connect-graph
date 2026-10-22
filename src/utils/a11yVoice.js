@@ -277,7 +277,11 @@ const CLUB_SPOKEN_ALIASES = {
   '초급 영어 북클럽': ['초급영어', '초급북', '초급'],
   '태극권 클럽': ['태극권', '태극'],
   'English Speech 클럽': ['영어스피치', '잉글리시', 'english'],
-  'Sans 레가타 (SANS REGATTA)': ['레가타', '요트', '보트', 'regatta']
+  'Sans 레가타 (SANS REGATTA)': ['레가타', '요트', '보트', 'regatta'],
+  '인생책편데': ['인생책편데', '인생책', '책편데'],
+  '기산편데': ['기산편데', '기산'],
+  '아트편데': ['아트편데', '아트', '미술'],
+  '투자북클럽': ['투자북클럽', '투자북', '투자', '투자클럽']
 };
 
 export function parseSpokenClubs(text, allClubs) {

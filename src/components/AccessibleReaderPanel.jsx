@@ -266,7 +266,7 @@ export default function AccessibleReaderPanel({
                   : `연결된 분들 (${connectedPeople.length}명)`
             },
             { id: 'members', label: `전체 명단 (${members.length}명)` },
-            { id: 'clubs', label: '16개 클럽 보기' },
+            { id: 'clubs', label: `${SANS_CLUBS.length}개 클럽 보기` },
             { id: 'teams', label: '1조~20조 보기' }
           ].map((tab) => (
             <button
@@ -360,7 +360,7 @@ export default function AccessibleReaderPanel({
         )}
 
         {activeTab === 'clubs' && (
-          <div className="space-y-3" role="list" aria-label="산스 16개 클럽 목록">
+          <div className="space-y-3" role="list" aria-label={`산스 ${SANS_CLUBS.length}개 클럽 목록`}>
             {SANS_CLUBS.map((club) => {
               const count = members.filter((m) => m.clubs.includes(club.name)).length;
               return (

@@ -175,6 +175,50 @@ export const SANS_CLUBS = [
     bgLight: '#E0F2FE', // sky-100
     borderLight: '#7DD3FC',
     initialMembers: ['추경진', '계홍매']
+  },
+  {
+    id: 'club-lifebook',
+    name: '인생책편데',
+    shortName: '인생책편데',
+    description: '인생의 책과 진솔한 편지를 나누는 감성 독서 클럽입니다.',
+    icon: 'BookHeart',
+    color: '#EC4899', // pink-500
+    bgLight: '#FCE7F3',
+    borderLight: '#FBCFE8',
+    initialMembers: []
+  },
+  {
+    id: 'club-gisan',
+    name: '기산편데',
+    shortName: '기산편데',
+    description: '서로에게 힘이 되는 편지와 깊은 울림을 나누는 클럽입니다.',
+    icon: 'Mountain',
+    color: '#14B8A6', // teal-500
+    bgLight: '#CCFBF1',
+    borderLight: '#99F6E4',
+    initialMembers: []
+  },
+  {
+    id: 'club-art',
+    name: '아트편데',
+    shortName: '아트편데',
+    description: '예술과 감성을 편지와 작품으로 교감하는 아트 클럽입니다.',
+    icon: 'Palette',
+    color: '#F97316', // orange-500
+    bgLight: '#FFEDD5',
+    borderLight: '#FED7AA',
+    initialMembers: []
+  },
+  {
+    id: 'club-invest-book',
+    name: '투자북클럽',
+    shortName: '투자북클럽',
+    description: '경제와 투자 인사이트를 함께 읽고 공부하는 투자 독서 클럽입니다.',
+    icon: 'TrendingUp',
+    color: '#84CC16', // lime-500
+    bgLight: '#ECFCCB',
+    borderLight: '#D9F99D',
+    initialMembers: []
   }
 ];
 

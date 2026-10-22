@@ -378,14 +378,14 @@ export default function ConnectionInspector({
   // 4. Overview Drawer (when manually opened in ALL or KEYWORD mode)
   return (
     <aside
-      aria-label="산스 16개 클럽 둘러보기"
+      aria-label={`산스 ${SANS_CLUBS.length}개 클럽 둘러보기`}
       className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
     >
       <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-sm font-extrabold text-white flex items-center gap-1.5">
             <Network className="w-4 h-4 text-amber-400" />
-            산스 16개 클럽 둘러보기
+            산스 {SANS_CLUBS.length}개 클럽 둘러보기
           </h2>
           <p className="text-[11px] text-slate-400 mt-0.5">
             클럽을 누르면 함께하는 분들이 보여요.

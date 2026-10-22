@@ -29,7 +29,11 @@ const CLUB_STAR_COLORS = {
   '초급 영어 북클럽': '#38BDF8',
   '태극권 클럽': '#F87171',
   'English Speech 클럽': '#22D3EE',
-  'Sans 레가타 (SANS REGATTA)': '#38BDF8'
+  'Sans 레가타 (SANS REGATTA)': '#38BDF8',
+  '인생책편데': '#EC4899',
+  '기산편데': '#14B8A6',
+  '아트편데': '#F97316',
+  '투자북클럽': '#84CC16'
 };
 
 function getKeywordStarColor(keyword) {
@@ -666,7 +670,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       const angle = (2 * Math.PI * idx) / Math.max(1, r1Count) - Math.PI / 2;
       const mNodeId = `member:${m.name}`;
       const badges = m.isRepresentative
-        ? [{ text: '전체 조 · 16개 클럽', color: '#FBBF24' }]
+        ? [{ text: `전체 조 · ${SANS_CLUBS.length}개 클럽`, color: '#FBBF24' }]
         : [
             { text: m.team, color: '#818CF8' },
             ...m.clubs.map((c) => ({
@@ -715,7 +719,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     key: repMember.name,
     nodeType: 'SANS_CORE',
     label: '이동훈 대표님',
-    subLabel: `산스(SANS) · 전체 조 · 16개 클럽 · ${members.length}명 연결`,
+    subLabel: `산스(SANS) · 전체 조 · ${SANS_CLUBS.length}개 클럽 · ${members.length}명 연결`,
     member: repMember,
     x: 0,
     y: 0,
@@ -723,7 +727,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     color: '#FBBF24'
   });
 
-  const clubRadius = 260;
+  const clubRadius = 285;
   const clubAngles = new Map();
 
   SANS_CLUBS.forEach((club, idx) => {
@@ -787,7 +791,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
   membersWithAngle.sort((a, b) => a.prefAngle - b.prefAngle);
 
   const mCount = membersWithAngle.length;
-  const memberRadius = Math.max(485, (mCount * 95) / (2 * Math.PI));
+  const memberRadius = Math.max(515, (mCount * 95) / (2 * Math.PI));
 
   membersWithAngle.forEach(({ member: m }, idx) => {
     const angle = (2 * Math.PI * idx) / Math.max(1, mCount) - Math.PI;
@@ -855,7 +859,7 @@ function computeAutoFitScale(nodes) {
 
 function getNodeAriaLabel(node) {
   if (node.nodeType === 'SANS_CORE') {
-    return '산스 이동훈 대표님. 전체 16개 클럽과 모든 조에 연결되어 있습니다. 누르면 대표님의 연결을 봅니다.';
+    return `산스 이동훈 대표님. 전체 ${SANS_CLUBS.length}개 클럽과 모든 조에 연결되어 있습니다. 누르면 대표님의 연결을 봅니다.`;
   }
   if (node.nodeType === 'MEMBER_HERO' || node.nodeType === 'MEMBER') {
     const team = node.member?.team || node.subLabel || '';
@@ -915,7 +919,7 @@ export default function KnowledgeGraph({
         .map((m) => m.name)
         .join(', ')})이 함께하고 있습니다.`;
     }
-    return `산스 전체 연결 화면입니다. 중심에 이동훈 대표님이 계시며, 16개 클럽과 총 ${members.length}명의 산스 식구들이 하나로 연결되어 있습니다.`;
+    return `산스 전체 연결 화면입니다. 중심에 이동훈 대표님이 계시며, ${SANS_CLUBS.length}개 클럽과 총 ${members.length}명의 산스 식구들이 하나로 연결되어 있습니다.`;
   }, [focus, members]);
 
   // Auto-fit camera scale based on node bounding box so small/medium/large graphs all fill the viewport!

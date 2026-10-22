@@ -132,7 +132,7 @@ export default function AccessibleReaderPanel({
   return (
     <div
       role="region"
-      aria-label="시각장애인 전용 음성 및 큰버튼 연결 화면"
+      aria-label="음성 및 큰버튼 연결 화면"
       className="fixed inset-x-0 top-14 bottom-0 z-30 bg-slate-950 text-white overflow-y-auto px-4 py-5 sm:px-8"
     >
       <div className="max-w-3xl mx-auto space-y-6 pb-16">
@@ -142,14 +142,14 @@ export default function AccessibleReaderPanel({
             <div className="flex items-center gap-2.5">
               <Volume2 className="w-7 h-7 text-amber-400 shrink-0" aria-hidden="true" />
               <h1 className="text-xl sm:text-2xl font-black text-amber-300">
-                시각장애인 전용 큰버튼 · 음성 화면
+                큰버튼 · 음성 화면
               </h1>
             </div>
 
             <button
               type="button"
               onClick={onSwitchToVisualGraph}
-              aria-label="시각 그래프 화면으로 전환하기"
+              aria-label="그래프 화면으로 전환하기"
               className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white text-sm font-extrabold flex items-center gap-2 focus-visible:ring-4 focus-visible:ring-amber-400"
             >
               <Eye className="w-4 h-4 text-cyan-400" aria-hidden="true" />

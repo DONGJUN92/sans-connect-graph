@@ -137,8 +137,8 @@ export function startVoiceRecognition({ promptText, onResult, onError, onStateCh
   if (typeof window === 'undefined') return;
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRec) {
-    const msg = '이 브라우저에서는 음성 인식을 지원하지 않습니다. 화면의 큰 버튼을 눌러 선택해 주세요.';
-    speakKorean(msg, true);
+    const msg = '이 브라우저에서는 음성 인식을 지원하지 않습니다. 화면의 버튼을 눌러 선택해 주세요.';
+    if (voiceGuideEnabled) speakKorean(msg);
     if (onError) onError(msg);
     return;
   }
@@ -173,8 +173,8 @@ export function startVoiceRecognition({ promptText, onResult, onError, onStateCh
       recognition.onerror = () => {
         playMicCue(false);
         if (onStateChange) onStateChange(false);
-        const errMsg = '음성을 잘 듣지 못했습니다. 다시 한 번 눌러 말씀해 주시거나 아래 큰 버튼을 눌러주세요.';
-        speakKorean(errMsg, true);
+        const errMsg = '음성을 잘 듣지 못했습니다. 다시 말씀해 주시거나 목록에서 골라주세요.';
+        if (voiceGuideEnabled) speakKorean(errMsg);
         if (onError) onError(errMsg);
       };
 
@@ -189,8 +189,8 @@ export function startVoiceRecognition({ promptText, onResult, onError, onStateCh
     }
   };
 
-  if (promptText) {
-    speakKorean(promptText, true, () => {
+  if (promptText && voiceGuideEnabled) {
+    speakKorean(promptText, false, () => {
       setTimeout(launchMic, 150);
     });
   } else {

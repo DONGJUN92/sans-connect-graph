@@ -110,22 +110,24 @@ export default function JoinModal({
       setLoadedMember(existing);
       setSelectedClubs([...(existing.clubs || [])]);
       setSelectedKeywords([...(existing.keywords || [])]);
-      speakKorean(
-        `[${teamName}] ${cleanName}님의 기존 등록 정보를 찾았습니다. 바로 내 연결 보기 버튼을 누르시면 결과를 바로 확인하실 수 있고, 수정 버튼을 누르시면 클럽과 키워드를 변경하실 수 있습니다.`,
-        true
-      );
+      if (voiceEnabled) {
+        speakKorean(
+          `[${teamName}] ${cleanName}님의 기존 등록 정보를 찾았습니다. 바로 내 연결 보기 버튼을 누르시면 결과를 바로 확인하실 수 있고, 수정 버튼을 누르시면 클럽과 키워드를 변경하실 수 있습니다.`
+        );
+      }
     } else {
       setLoadedMember(null);
       // Clean slate for new participant
       setSelectedClubs([]);
       setSelectedKeywords([]);
-      speakKorean(`${teamName} 선택 완료.`, true);
+      if (voiceEnabled) {
+        speakKorean(`${teamName} 선택 완료.`);
+      }
     }
   };
 
   // Step 1 Voice Input: captures name only and moves to Step 2 (Team selection)
   const handleVoiceNameInput = () => {
-    if (onEnableVoice) onEnableVoice();
     setVoiceStatusText('이름을 말씀해 주세요 (예: 신동준)');
     startVoiceRecognition({
       promptText: '삐 소리 후 이름을 말씀해 주세요.',
@@ -138,10 +140,11 @@ export default function JoinModal({
           setSelectedTeam('');
           setLoadedMember(null);
           setVoiceStatusText(`"${finalName}"님 입력 완료!`);
-          speakKorean(
-            `${finalName}님 반갑습니다. 동명이인 구분을 위해 몇 조인지 필수로 선택해 주세요.`,
-            true
-          );
+          if (voiceEnabled) {
+            speakKorean(
+              `${finalName}님 반갑습니다. 동명이인 구분을 위해 몇 조인지 필수로 선택해 주세요.`
+            );
+          }
           setStep(2);
         }
       },
@@ -151,7 +154,6 @@ export default function JoinModal({
 
   // Step 2 Voice Input: captures team
   const handleVoiceTeamInput = () => {
-    if (onEnableVoice) onEnableVoice();
     setVoiceStatusText('몇 조인지 말씀해 주세요 (예: 5조)');
     startVoiceRecognition({
       promptText: '삐 소리 후 몇 조인지 말씀해 주세요. 예: 5조',
@@ -164,7 +166,7 @@ export default function JoinModal({
         } else {
           const msg = `"${spoken}"에서 조 번호를 찾지 못했습니다. 1조부터 20조 사이로 다시 말씀해 주세요.`;
           setVoiceStatusText(msg);
-          speakKorean(msg, true);
+          if (voiceEnabled) speakKorean(msg);
         }
       },
       onError: (msg) => setVoiceStatusText(msg)
@@ -173,7 +175,6 @@ export default function JoinModal({
 
   // Step 3 Voice Input: captures clubs (optional)
   const handleVoiceClubInput = () => {
-    if (onEnableVoice) onEnableVoice();
     setVoiceStatusText('활동 중인 클럽 이름을 말씀해 주세요 (예: 멘토링, 인생책편데)');
     startVoiceRecognition({
       promptText: '삐 소리 후 활동하시는 클럽 이름을 말씀해 주세요.',
@@ -184,14 +185,15 @@ export default function JoinModal({
           setSelectedClubs((prev) => Array.from(new Set([...prev, ...matchedClubs])));
           const joined = matchedClubs.join(', ');
           setVoiceStatusText(`${joined} 선택 완료!`);
-          speakKorean(
-            `${joined}이 선택되었습니다. 더 고르시거나 화면 아래 다음 버튼을 눌러주세요.`,
-            true
-          );
+          if (voiceEnabled) {
+            speakKorean(
+              `${joined}이 선택되었습니다. 더 고르시거나 화면 아래 다음 버튼을 눌러주세요.`
+            );
+          }
         } else {
           const msg = `"${spoken}"에서 클럽 이름을 찾지 못했습니다. 목록에서 골라주시거나 다음으로 넘어가셔도 됩니다.`;
           setVoiceStatusText(msg);
-          speakKorean(msg, true);
+          if (voiceEnabled) speakKorean(msg);
         }
       },
       onError: (msg) => setVoiceStatusText(msg)
@@ -200,7 +202,6 @@ export default function JoinModal({
 
   // Step 4 Voice Input: captures keywords
   const handleVoiceKeywordInput = () => {
-    if (onEnableVoice) onEnableVoice();
     setVoiceStatusText('마음에 드는 단어를 말씀해 주세요 (예: 동료, 성장, 배려)');
     startVoiceRecognition({
       promptText: '삐 소리 후 동료, 성장, 배려처럼 마음에 드는 단어를 말씀해 주세요.',
@@ -214,10 +215,11 @@ export default function JoinModal({
           matched.length > 0 ? matched : ['#함께걷는동료', '#따뜻한시선', '#오래함께해요'];
         setSelectedKeywords((prev) => Array.from(new Set([...prev, ...picks])).slice(0, 6));
         setVoiceStatusText(`${picks.join(' ')} 선택 완료!`);
-        speakKorean(
-          `${picks.map((k) => k.replace('#', '')).join(', ')} 키워드가 선택되었습니다. 아래 완료 버튼을 누르시면 연결 화면으로 이동합니다.`,
-          true
-        );
+        if (voiceEnabled) {
+          speakKorean(
+            `${picks.map((k) => k.replace('#', '')).join(', ')} 키워드가 선택되었습니다. 아래 완료 버튼을 누르시면 연결 화면으로 이동합니다.`
+          );
+        }
       },
       onError: (msg) => setVoiceStatusText(msg)
     });
@@ -249,11 +251,13 @@ export default function JoinModal({
     setSelectedClubs((prev) => {
       const exists = prev.includes(clubName);
       const next = exists ? prev.filter((c) => c !== clubName) : [...prev, clubName];
-      speakKorean(
-        exists
-          ? `${clubName} 취소됨. 현재 ${next.length}개 선택.`
-          : `${clubName} 선택됨. 현재 ${next.length}개 선택.`
-      );
+      if (voiceEnabled) {
+        speakKorean(
+          exists
+            ? `${clubName} 취소됨. 현재 ${next.length}개 선택.`
+            : `${clubName} 선택됨. 현재 ${next.length}개 선택.`
+        );
+      }
       return next;
     });
   };
@@ -264,17 +268,17 @@ export default function JoinModal({
     setSelectedKeywords((prev) => {
       if (prev.includes(kw)) {
         const next = prev.filter((k) => k !== kw);
-        speakKorean(`${cleanKw} 취소됨.`);
+        if (voiceEnabled) speakKorean(`${cleanKw} 취소됨.`);
         return next;
       }
       if (prev.length >= 6) {
         const msg = '키워드는 6개까지 고를 수 있어요.';
         setErrorMsg(msg);
-        speakKorean(msg);
+        if (voiceEnabled) speakKorean(msg);
         return prev;
       }
       const next = [...prev, kw];
-      speakKorean(`${cleanKw} 선택됨. 현재 ${next.length}개.`);
+      if (voiceEnabled) speakKorean(`${cleanKw} 선택됨. 현재 ${next.length}개.`);
       return next;
     });
   };
@@ -285,7 +289,7 @@ export default function JoinModal({
       if (!name.trim()) {
         const msg = '이름을 먼저 입력해 주세요.';
         setErrorMsg(msg);
-        speakKorean(msg, true);
+        if (voiceEnabled) speakKorean(msg);
         return;
       }
       setStep(2);
@@ -293,7 +297,7 @@ export default function JoinModal({
       if (!selectedTeam) {
         const msg = '몇 조에 속해 계신지 필수로 골라주세요. (1조~20조)';
         setErrorMsg(msg);
-        speakKorean(msg, true);
+        if (voiceEnabled) speakKorean(msg);
         return;
       }
       setStep(3);
@@ -320,7 +324,7 @@ export default function JoinModal({
     if (selectedKeywords.length === 0) {
       const msg = '마음에 와닿는 말을 1개 이상 골라주세요.';
       setErrorMsg(msg);
-      speakKorean(msg, true);
+      if (voiceEnabled) speakKorean(msg);
       return;
     }
 
@@ -342,16 +346,6 @@ export default function JoinModal({
     activeCategory === 'all'
       ? KEYWORD_CATEGORIES
       : KEYWORD_CATEGORIES.filter((c) => c.id === activeCategory);
-
-  const matchingMembers = useMemo(() => {
-    const q = name.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        (m.team && m.team.toLowerCase().includes(q))
-    );
-  }, [name, members]);
 
   if (!isOpen) return null;
 
@@ -394,8 +388,8 @@ export default function JoinModal({
               aria-pressed={voiceEnabled}
               aria-label={
                 voiceEnabled
-                  ? '시각장애인 음성 및 큰버튼 모드가 켜져 있습니다. 누르면 끕니다.'
-                  : '시각장애인 음성 및 큰버튼 모드 켜기. 화면을 보기 어려운 분은 이 버튼을 가장 먼저 눌러주세요.'
+                  ? '음성/큰버튼 모드가 켜져 있습니다. 누르면 끕니다.'
+                  : '음성/큰버튼 모드 켜기'
               }
               className={`flex-1 py-3 px-4 rounded-2xl text-sm sm:text-base font-black flex items-center justify-center gap-2 border-2 transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
                 voiceEnabled
@@ -410,8 +404,8 @@ export default function JoinModal({
               )}
               <span>
                 {voiceEnabled
-                  ? '🔊 시각장애인 음성·큰버튼 모드 켜짐'
-                  : '🔊 시각장애인 음성·큰버튼 모드 켜기'}
+                  ? '🔊 음성/큰버튼 모드 켜짐'
+                  : '🔊 음성/큰버튼 모드 켜기'}
               </span>
             </button>
 
@@ -562,7 +556,7 @@ export default function JoinModal({
                     onClick={() => {
                       setName('');
                       setLoadedMember(null);
-                      speakKorean('입력한 이름을 지웠습니다.');
+                      if (voiceEnabled) speakKorean('입력한 이름을 지웠습니다.');
                     }}
                     aria-label="입력한 이름 지우기"
                     className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-700 transition focus-visible:ring-4 focus-visible:ring-blue-500"
@@ -570,60 +564,6 @@ export default function JoinModal({
                     <X className="w-4 h-4" />
                   </button>
                 )}
-              </div>
-
-              {/* Quick Select Name from Registered List */}
-              <div className="space-y-2.5 pt-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-extrabold text-slate-700">
-                    👇 명단에서 내 이름을 눌러도 돼요 ({matchingMembers.length}명)
-                  </span>
-                </div>
-                <div
-                  role="list"
-                  aria-label="등록된 산스 구성원 이름 목록"
-                  className={`grid gap-2.5 max-h-56 overflow-y-auto pr-1 ${
-                    voiceEnabled ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'
-                  }`}
-                >
-                  {matchingMembers.map((m) => (
-                    <button
-                      type="button"
-                      key={`${m.name}-${m.team}`}
-                      aria-label={`${m.name}, ${m.team}. 누르면 이름이 입력되고 조 선택으로 이동합니다.`}
-                      onClick={() => {
-                        setName(m.name);
-                        setSelectedTeam('');
-                        setLoadedMember(null);
-                        setStep(2);
-                        speakKorean(`${m.name}님 입력 완료. 몇 조인지 필수로 골라주세요.`, true);
-                      }}
-                      className={`rounded-2xl border-2 text-left transition flex items-center justify-between focus-visible:ring-4 focus-visible:ring-amber-400 ${
-                        voiceEnabled ? 'p-4 min-h-[64px]' : 'p-3'
-                      } bg-slate-50 hover:bg-blue-50/70 border-slate-200 text-slate-900`}
-                    >
-                      <div className="min-w-0">
-                        <div
-                          className={`font-extrabold truncate ${
-                            voiceEnabled ? 'text-lg' : 'text-sm sm:text-base'
-                          }`}
-                        >
-                          {m.name}
-                        </div>
-                        <div
-                          className={`font-semibold truncate text-slate-500 ${
-                            voiceEnabled ? 'text-sm' : 'text-xs'
-                          }`}
-                        >
-                          {m.team}
-                        </div>
-                      </div>
-                      <span className="text-xs font-extrabold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-lg shrink-0">
-                        선택
-                      </span>
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           )}
@@ -1042,7 +982,7 @@ export default function JoinModal({
               className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-base sm:text-lg font-extrabold shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 transition focus-visible:ring-4 focus-visible:ring-amber-400"
             >
               <span>
-                {step === 1 && '다음: 몇 조인지 고르기 (필수)'}
+                {step === 1 && '다음: 소속 조 선택 (필수)'}
                 {step === 2 &&
                   (selectedTeam
                     ? `${selectedTeam} 선택 완료 · 다음: 클럽 선택으로`

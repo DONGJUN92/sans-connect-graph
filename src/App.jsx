@@ -102,13 +102,15 @@ export default function App() {
     });
 
     playConnectionChime();
-    speakKorean(
-      `새로운 연결 알림. 방금 ${memberObj.team || ''} ${cleanName}님이 ${(
-        memberObj.clubs || []
-      )
-        .slice(0, 2)
-        .join(', ')}으로 함께 연결되었습니다.`
-    );
+    if (voiceEnabled) {
+      speakKorean(
+        `새로운 연결 알림. 방금 ${memberObj.team || ''} ${cleanName}님이 ${(
+          memberObj.clubs || []
+        )
+          .slice(0, 2)
+          .join(', ')}으로 함께 연결되었습니다.`
+      );
+    }
 
     setTimeout(() => {
       setNewlyJoinedNames((prev) => {
@@ -126,7 +128,7 @@ export default function App() {
       if (next) {
         setIsReaderView(true);
         speakKorean(
-          '시각장애인을 위한 음성 및 큰글씨 모드가 켜졌습니다. 화면의 버튼과 연결 내용을 음성으로 안내합니다.',
+          '음성 및 큰버튼 모드가 켜졌습니다. 화면의 버튼과 연결 내용을 음성으로 안내합니다.',
           true
         );
       } else {
@@ -559,15 +561,15 @@ export default function App() {
             type="button"
             onClick={() => {
               setIsReaderView((v) => !v);
-              if (!isReaderView) {
-                speakKorean('시각장애인 전용 큰글씨·음성 목록 화면으로 전환되었습니다.', true);
+              if (!isReaderView && voiceEnabled) {
+                speakKorean('큰버튼·음성 화면으로 전환되었습니다.');
               }
             }}
             aria-pressed={isReaderView}
             aria-label={
               isReaderView
-                ? '현재 큰글씨·음성 화면. 누르면 시각 그래프 화면으로 전환'
-                : '시각장애인용 큰글씨·음성 화면 열기'
+                ? '현재 큰버튼·음성 화면. 누르면 시각 그래프 화면으로 전환'
+                : '큰버튼·음성 화면 열기'
             }
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
               isReaderView
@@ -583,7 +585,7 @@ export default function App() {
             ) : (
               <>
                 <List className="w-4 h-4 text-amber-300" aria-hidden="true" />
-                <span className="hidden sm:inline">큰글씨·음성 목록</span>
+                <span className="hidden sm:inline">큰버튼 목록</span>
               </>
             )}
           </button>
@@ -595,8 +597,8 @@ export default function App() {
             aria-pressed={voiceEnabled}
             aria-label={
               voiceEnabled
-                ? '음성 안내 켜짐. 누르면 끕니다.'
-                : '음성 안내 켜기'
+                ? '음성/큰버튼 모드 켜짐. 누르면 끕니다.'
+                : '음성/큰버튼 모드 켜기'
             }
             className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
               voiceEnabled
@@ -610,7 +612,7 @@ export default function App() {
               <VolumeX className="w-4 h-4" aria-hidden="true" />
             )}
             <span className="hidden md:inline">
-              {voiceEnabled ? '음성 켜짐' : '음성 안내'}
+              {voiceEnabled ? '음성 켜짐' : '음성/큰버튼'}
             </span>
           </button>
 

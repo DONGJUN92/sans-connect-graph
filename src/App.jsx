@@ -846,6 +846,7 @@ export default function App() {
         onToggleVoice={handleToggleVoice}
         onEnableVoice={handleEnableVoiceExplicit}
         latestLiveJoin={toast}
+        isMobile={isMobile}
       />
 
       <QrModal

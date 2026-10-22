@@ -20,6 +20,9 @@ import JoinModal from './components/JoinModal';
 import QrModal from './components/QrModal';
 import ConnectionInspector from './components/ConnectionInspector';
 import AccessibleReaderPanel from './components/AccessibleReaderPanel';
+import AdminLoginModal from './components/AdminLoginModal';
+import AdminPanel from './components/AdminPanel';
+import { useDeviceMode } from './hooks/useDeviceMode';
 import ClubIcon from './components/ClubIcon';
 import {
   Search,
@@ -33,10 +36,20 @@ import {
   VolumeX,
   Compass,
   Eye,
-  List
+  List,
+  Shield,
+  LogOut,
+  Smartphone
 } from 'lucide-react';
 
 export default function App() {
+  const { isMobile, isDesktop } = useDeviceMode();
+  const [isAdmin, setIsAdmin] = useState(() =>
+    typeof window !== 'undefined' ? sessionStorage.getItem('sans_admin') === 'true' : false
+  );
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+
   const [events, setEvents] = useState(() => getLocalEvents());
   const members = useMemo(() => computeMembersFromEvents(events), [events]);
 
@@ -284,6 +297,60 @@ export default function App() {
     });
     handleSelectFocus({ type: 'MEMBER', id: memberData.name });
     registerNewLiveArrival(memberData);
+  };
+
+  const handleAdminLogin = (id, pw) => {
+    if (id === 'test' && pw === 'test') {
+      setIsAdmin(true);
+      try { sessionStorage.setItem('sans_admin', 'true'); } catch {}
+      setIsAdminLoginOpen(false);
+      setIsAdminPanelOpen(true);
+      setToast({
+        name: '운영자',
+        team: '로그인 성공',
+        clubs: ['불필요한 참가자 정보를 삭제할 수 있습니다.']
+      });
+      return { success: true };
+    }
+    return { success: false, error: '아이디(test) 또는 비밀번호(test)를 확인해 주세요.' };
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+    try { sessionStorage.removeItem('sans_admin'); } catch {}
+    setIsAdminPanelOpen(false);
+    setToast({
+      name: '운영자',
+      team: '로그아웃 완료',
+      clubs: ['일반 사용자 모드로 전환되었습니다.']
+    });
+  };
+
+  const handleDeleteMember = async (memberName) => {
+    const cleanName = memberName.trim();
+    if (!cleanName) return;
+    if (cleanName === '이동훈 대표님') {
+      alert('중앙 허브인 이동훈 대표님 정보는 삭제할 수 없습니다.');
+      return;
+    }
+    const ev = await publishSyncEvent({
+      type: 'DELETE_MEMBER',
+      name: cleanName
+    });
+    knownEventIdsRef.current.add(ev.id);
+    setEvents((prev) => {
+      const next = mergeEventLists(prev, [ev]);
+      saveLocalEvents(next);
+      return next;
+    });
+    if (focus.type === 'MEMBER' && focus.id === cleanName) {
+      handleSelectFocus({ type: 'ALL', id: null });
+    }
+    setToast({
+      name: cleanName,
+      team: '삭제 완료',
+      clubs: ['운영자에 의해 삭제되었습니다.']
+    });
   };
 
   const handleOpenEditMember = (memberName = '') => {
@@ -555,7 +622,41 @@ export default function App() {
         </div>
 
         {/* Right: View Switcher, Voice Guide, Register & QR */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Admin Operator Button */}
+          {!isAdmin ? (
+            <button
+              type="button"
+              onClick={() => setIsAdminLoginOpen(true)}
+              aria-label="운영자 로그인"
+              className="px-2.5 sm:px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-300 border border-slate-700 text-xs sm:text-sm font-bold flex items-center gap-1.5 transition"
+            >
+              <Shield className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline">운영자</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsAdminPanelOpen(true)}
+                aria-label="운영자 관리 센터 열기"
+                className="px-2.5 sm:px-3 py-2 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/50 text-xs sm:text-sm font-black flex items-center gap-1.5 transition shadow-sm animate-pulse"
+              >
+                <Shield className="w-4 h-4 text-amber-400" />
+                <span className="hidden sm:inline">운영자 관리</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminLogout}
+                title="운영자 로그아웃"
+                aria-label="운영자 로그아웃"
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-300 transition"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Big-Text & Audio Reader View Toggle */}
           <button
             type="button"
@@ -571,7 +672,7 @@ export default function App() {
                 ? '현재 큰버튼·음성 화면. 누르면 시각 그래프 화면으로 전환'
                 : '큰버튼·음성 화면 열기'
             }
-            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
+            className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
               isReaderView
                 ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-md'
                 : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700'
@@ -600,7 +701,7 @@ export default function App() {
                 ? '음성/큰버튼 모드 켜짐. 누르면 끕니다.'
                 : '음성/큰버튼 모드 켜기'
             }
-            className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
+            className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-1.5 border transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
               voiceEnabled
                 ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-md'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
@@ -616,10 +717,11 @@ export default function App() {
             </span>
           </button>
 
+          {/* Join/Edit Button (Desktop prominence) */}
           <button
             onClick={() => handleOpenEditMember('')}
             aria-label="내 이름 찾기 또는 새로 등록하기"
-            className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-black shadow-lg shadow-blue-600/25 flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
+            className="hidden sm:flex px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-black shadow-lg shadow-blue-600/25 items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
           >
             <UserPlus className="w-4 h-4" aria-hidden="true" />
             <span>내 이름 찾기 · 등록</span>
@@ -628,7 +730,7 @@ export default function App() {
           <button
             onClick={() => setIsQrOpen(true)}
             aria-label="스마트폰 참여용 QR 코드 열기"
-            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
+            className="px-2.5 sm:px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs sm:text-sm font-extrabold flex items-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
           >
             <QrCode className="w-4 h-4 text-amber-300" aria-hidden="true" />
             <span className="hidden md:inline">QR</span>
@@ -656,6 +758,7 @@ export default function App() {
               personSubMode={personSubMode}
               onChangePersonSubMode={setPersonSubMode}
               newlyJoinedNames={newlyJoinedNames}
+              isMobile={isMobile}
             />
 
             <ConnectionInspector
@@ -665,10 +768,69 @@ export default function App() {
               onOpenEditMember={handleOpenEditMember}
               isOpen={isInspectorOpen}
               onToggleOpen={() => setIsInspectorOpen((v) => !v)}
+              isMobile={isMobile}
+              isAdmin={isAdmin}
+              onDeleteMember={handleDeleteMember}
             />
           </>
         )}
       </main>
+
+      {/* ==================== Mobile Bottom Navigation Dock ==================== */}
+      {isMobile && !isJoinOpen && !isAdminPanelOpen && !isAdminLoginOpen && (
+        <nav
+          aria-label="모바일 빠른 메뉴"
+          className="fixed bottom-0 inset-x-0 z-30 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 px-3 py-2 flex items-center justify-around gap-1 shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
+        >
+          <button
+            type="button"
+            onClick={() => handleSelectFocus({ type: 'ALL', id: null })}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl text-[11px] font-extrabold transition ${
+              focus.type === 'ALL'
+                ? 'text-amber-400 bg-amber-400/10'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Compass className="w-5 h-5" />
+            <span>전체 연결</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenEditMember('')}
+            className="flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-xs shadow-lg shadow-blue-500/30 active:scale-95 transition"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>내 정보 등록</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsReaderView((v) => !v)}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl text-[11px] font-extrabold transition ${
+              isReaderView
+                ? 'text-cyan-400 bg-cyan-400/10'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <List className="w-5 h-5" />
+            <span>{isReaderView ? '그래프' : '큰버튼 목록'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsFilterDrawerOpen((v) => !v)}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl text-[11px] font-extrabold transition ${
+              isFilterDrawerOpen
+                ? 'text-blue-400 bg-blue-400/10'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Network className="w-5 h-5" />
+            <span>클럽·조</span>
+          </button>
+        </nav>
+      )}
 
       {/* ==================== 3. MODALS ==================== */}
       <JoinModal
@@ -690,6 +852,20 @@ export default function App() {
         isOpen={isQrOpen}
         onClose={() => setIsQrOpen(false)}
         memberCount={members.length}
+      />
+
+      <AdminLoginModal
+        isOpen={isAdminLoginOpen}
+        onClose={() => setIsAdminLoginOpen(false)}
+        onLogin={handleAdminLogin}
+      />
+
+      <AdminPanel
+        isOpen={isAdminPanelOpen}
+        onClose={() => setIsAdminPanelOpen(false)}
+        members={members}
+        onDeleteMember={handleDeleteMember}
+        onLogout={handleAdminLogout}
       />
     </div>
   );

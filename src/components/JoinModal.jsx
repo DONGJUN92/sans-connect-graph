@@ -973,7 +973,7 @@ export default function JoinModal({
         </div>
 
         {/* Sticky Bottom CTA Button */}
-        <div className="px-6 py-4 bg-white border-t border-slate-100 shrink-0">
+        <div className="px-5 sm:px-6 py-3.5 sm:py-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-white border-t border-slate-100 shrink-0">
           {step < 4 ? (
             <button
               type="button"

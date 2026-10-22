@@ -1,7 +1,7 @@
 import React from 'react';
 import { SANS_CLUBS } from '../data/sansData';
 import ClubIcon from './ClubIcon';
-import { Edit3, ArrowRight, Network, Volume2, X } from 'lucide-react';
+import { Edit3, ArrowRight, Network, Volume2, X, Trash2 } from 'lucide-react';
 import { buildMemberConnectionSummaryText, speakKorean } from '../utils/a11yVoice';
 
 export default function ConnectionInspector({
@@ -10,18 +10,27 @@ export default function ConnectionInspector({
   onSelectFocus,
   onOpenEditMember,
   isOpen,
-  onToggleOpen
+  onToggleOpen,
+  isMobile = false,
+  isAdmin = false,
+  onDeleteMember = null
 }) {
   const clubByName = new Map(SANS_CLUBS.map((c) => [c.name, c]));
 
-  // When collapsed, show a small floating button on the top-right to re-open the detail card
+  const asideClassName = isMobile
+    ? 'fixed inset-x-0 bottom-0 z-40 max-h-[75vh] w-full bg-slate-900/98 backdrop-blur-2xl border-t-2 border-slate-700 rounded-t-3xl text-white shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300'
+    : 'fixed top-16 right-3 bottom-3 z-30 w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden';
+
+  // When collapsed, show a small floating button to re-open the detail card
   if (!isOpen) {
     return (
       <button
         type="button"
         onClick={onToggleOpen}
         aria-label="연결된 사람들 목록 열기"
-        className="fixed top-16 right-4 z-30 px-4 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 border border-slate-700 text-white text-xs sm:text-sm font-extrabold shadow-xl flex items-center gap-2 transition focus-visible:ring-4 focus-visible:ring-amber-400"
+        className={`fixed z-30 px-4 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 border border-slate-700 text-white text-xs sm:text-sm font-extrabold shadow-xl flex items-center gap-2 transition focus-visible:ring-4 focus-visible:ring-amber-400 ${
+          isMobile ? 'bottom-20 right-3' : 'top-16 right-4'
+        }`}
       >
         <Network className="w-4 h-4 text-amber-400" />
         <span>연결된 사람들 보기</span>
@@ -65,8 +74,11 @@ export default function ConnectionInspector({
     return (
       <aside
         aria-label={`${person.name}님의 연결 상세 정보`}
-        className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
+        className={asideClassName}
       >
+        {isMobile && (
+          <div className="w-12 h-1 bg-slate-600 rounded-full mx-auto my-2 shrink-0" />
+        )}
         {/* Person Header Card */}
         <div className="p-4 sm:p-5 bg-gradient-to-br from-blue-600 via-indigo-700 to-slate-900 border-b border-slate-800 space-y-3 shrink-0">
           <div className="flex items-start justify-between gap-2">
@@ -110,6 +122,17 @@ export default function ConnectionInspector({
             <Volume2 className="w-4 h-4 aria-hidden=true" />
             <span>🔊 음성으로 듣기</span>
           </button>
+
+          {isAdmin && !person.isRepresentative && onDeleteMember && (
+            <button
+              type="button"
+              onClick={() => onDeleteMember(person.name)}
+              className="w-full py-2 px-3 rounded-xl bg-rose-600/25 hover:bg-rose-600 border border-rose-500/40 text-rose-200 hover:text-white text-xs font-black flex items-center justify-center gap-1.5 transition active:scale-95"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>운영자: [{person.name}] 님 정보 삭제</span>
+            </button>
+          )}
 
           <div className="flex flex-wrap gap-1.5 pt-0.5 max-h-20 overflow-y-auto">
             {person.clubs.map((cName) => (
@@ -250,8 +273,11 @@ export default function ConnectionInspector({
     return (
       <aside
         aria-label={`${club.name} 함께하는 분들 목록`}
-        className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
+        className={asideClassName}
       >
+        {isMobile && (
+          <div className="w-12 h-1 bg-slate-600 rounded-full mx-auto my-2 shrink-0" />
+        )}
         <div className="p-4 sm:p-5 bg-slate-800/95 border-b border-slate-700 space-y-2 shrink-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3">
@@ -321,8 +347,11 @@ export default function ConnectionInspector({
     return (
       <aside
         aria-label={`${focus.id} 함께하는 분들 목록`}
-        className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
+        className={asideClassName}
       >
+        {isMobile && (
+          <div className="w-12 h-1 bg-slate-600 rounded-full mx-auto my-2 shrink-0" />
+        )}
         <div className="p-4 sm:p-5 bg-gradient-to-r from-indigo-900 to-slate-900 border-b border-slate-800 flex items-start justify-between gap-2 shrink-0">
           <div>
             <span className="text-[11px] font-extrabold text-cyan-400 tracking-wider">
@@ -379,8 +408,11 @@ export default function ConnectionInspector({
   return (
     <aside
       aria-label={`산스 ${SANS_CLUBS.length}개 클럽 둘러보기`}
-      className="fixed top-16 right-3 bottom-3 z-30 w-[330px] sm:w-[360px] bg-slate-900/95 backdrop-blur-xl border border-slate-700/90 rounded-3xl text-white shadow-2xl flex flex-col overflow-hidden"
+      className={asideClassName}
     >
+      {isMobile && (
+        <div className="w-12 h-1 bg-slate-600 rounded-full mx-auto my-2 shrink-0" />
+      )}
       <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-sm font-extrabold text-white flex items-center gap-1.5">

@@ -1,4 +1,4 @@
-// 16 SANS Clubs exactly matching the user's screenshot
+// 20 SANS Clubs exactly matching the user's requirements
 export const SANS_CLUBS = [
   {
     id: 'club-mentoring',
@@ -9,7 +9,7 @@ export const SANS_CLUBS = [
     color: '#D97706', // amber-600
     bgLight: '#FEF3C7', // amber-100
     borderLight: '#FDE68A',
-    initialMembers: ['송현진', '문두열', '신동준']
+    initialMembers: ['신동준']
   },
   {
     id: 'club-speech',
@@ -20,7 +20,7 @@ export const SANS_CLUBS = [
     color: '#E11D48', // rose-600
     bgLight: '#FFE4E6', // rose-100
     borderLight: '#FECDD3',
-    initialMembers: ['노수림', '류창동', '이창훈', '신동준']
+    initialMembers: ['신동준']
   },
   {
     id: 'club-ai',
@@ -31,7 +31,7 @@ export const SANS_CLUBS = [
     color: '#7C3AED', // violet-600
     bgLight: '#EDE9FE', // violet-100
     borderLight: '#DDD6FE',
-    initialMembers: ['김장원', '김지웅', '신동준']
+    initialMembers: ['신동준']
   },
   {
     id: 'club-golf',
@@ -42,7 +42,7 @@ export const SANS_CLUBS = [
     color: '#059669', // emerald-600
     bgLight: '#D1FAE5', // emerald-100
     borderLight: '#A7F3D0',
-    initialMembers: ['권정훈']
+    initialMembers: []
   },
   {
     id: 'club-analects',
@@ -53,7 +53,7 @@ export const SANS_CLUBS = [
     color: '#B45309', // amber-700
     bgLight: '#FEF3C7',
     borderLight: '#FCD34D',
-    initialMembers: ['강석종']
+    initialMembers: []
   },
   {
     id: 'club-dance',
@@ -64,7 +64,7 @@ export const SANS_CLUBS = [
     color: '#DB2777', // pink-600
     bgLight: '#FCE7F3', // pink-100
     borderLight: '#FBCFE8',
-    initialMembers: ['신해리', '최가람']
+    initialMembers: []
   },
   {
     id: 'club-running',
@@ -75,7 +75,7 @@ export const SANS_CLUBS = [
     color: '#65A30D', // lime-600
     bgLight: '#ECFCCB', // lime-100
     borderLight: '#D9F99D',
-    initialMembers: ['심재경']
+    initialMembers: []
   },
   {
     id: 'club-bio',
@@ -86,7 +86,7 @@ export const SANS_CLUBS = [
     color: '#0D9488', // teal-600
     bgLight: '#CCFBF1', // teal-100
     borderLight: '#99F6E4',
-    initialMembers: ['김상범', '류나연']
+    initialMembers: []
   },
   {
     id: 'club-realestate',
@@ -97,7 +97,7 @@ export const SANS_CLUBS = [
     color: '#2563EB', // blue-600
     bgLight: '#DBEAFE', // blue-100
     borderLight: '#BFDBFE',
-    initialMembers: ['이태희']
+    initialMembers: []
   },
   {
     id: 'club-theater',
@@ -108,7 +108,7 @@ export const SANS_CLUBS = [
     color: '#EA580C', // orange-600
     bgLight: '#FFEDD5', // orange-100
     borderLight: '#FED7AA',
-    initialMembers: ['김세미']
+    initialMembers: []
   },
   {
     id: 'club-movie',
@@ -119,7 +119,7 @@ export const SANS_CLUBS = [
     color: '#9333EA', // purple-600
     bgLight: '#F3E8FF', // purple-100
     borderLight: '#E9D5FF',
-    initialMembers: ['조유경']
+    initialMembers: []
   },
   {
     id: 'club-eng-book-mid',
@@ -130,7 +130,7 @@ export const SANS_CLUBS = [
     color: '#4F46E5', // indigo-600
     bgLight: '#E0E7FF', // indigo-100
     borderLight: '#C7D2FE',
-    initialMembers: ['조종희']
+    initialMembers: []
   },
   {
     id: 'club-eng-book-beg',
@@ -141,7 +141,7 @@ export const SANS_CLUBS = [
     color: '#0284C7', // sky-600
     bgLight: '#E0F2FE', // sky-100
     borderLight: '#BAE6FD',
-    initialMembers: ['백혜원']
+    initialMembers: []
   },
   {
     id: 'club-taichi',
@@ -152,7 +152,7 @@ export const SANS_CLUBS = [
     color: '#DC2626', // red-600
     bgLight: '#FEE2E2', // red-100
     borderLight: '#FECACA',
-    initialMembers: ['홍수찬']
+    initialMembers: []
   },
   {
     id: 'club-eng-speech',
@@ -163,7 +163,7 @@ export const SANS_CLUBS = [
     color: '#0891B2', // cyan-600
     bgLight: '#CFFAFE', // cyan-100
     borderLight: '#A5F3FC',
-    initialMembers: ['이정윤', '노수림']
+    initialMembers: []
   },
   {
     id: 'club-regatta',
@@ -174,7 +174,7 @@ export const SANS_CLUBS = [
     color: '#0369A1', // sky-700
     bgLight: '#E0F2FE', // sky-100
     borderLight: '#7DD3FC',
-    initialMembers: ['추경진', '계홍매']
+    initialMembers: []
   },
   {
     id: 'club-lifebook',
@@ -355,215 +355,8 @@ export const INITIAL_MEMBERS = [
     keywords: ['#함께걷는동료', '#성장의자극제', '#따뜻한경청자', '#상부상조메이트'],
     isSeed: true,
     updatedAt: 1700000000001
-  },
-  {
-    id: 'member-송현진',
-    name: '송현진',
-    team: '1조',
-    clubs: ['멘토링 클럽'],
-    keywords: ['#든든한멘토', '#인사이트뱅크', '#따뜻한시선'],
-    isSeed: true,
-    updatedAt: 1700000000002
-  },
-  {
-    id: 'member-문두열',
-    name: '문두열',
-    team: '2조',
-    clubs: ['멘토링 클럽'],
-    keywords: ['#함께걷는동료', '#배울점이가득한', '#마음의안식처'],
-    isSeed: true,
-    updatedAt: 1700000000003
-  },
-  {
-    id: 'member-노수림',
-    name: '노수림',
-    team: '3조',
-    clubs: ['스피치 클럽', 'English Speech 클럽'],
-    keywords: ['#스피치응원단', '#열정만수르', '#긍정에너지'],
-    isSeed: true,
-    updatedAt: 1700000000004
-  },
-  {
-    id: 'member-류창동',
-    name: '류창동',
-    team: '4조',
-    clubs: ['스피치 클럽'],
-    keywords: ['#깊이있는대화', '#유쾌한입담', '#성장의자극제'],
-    isSeed: true,
-    updatedAt: 1700000000005
-  },
-  {
-    id: 'member-이창훈',
-    name: '이창훈',
-    team: '5조',
-    clubs: ['스피치 클럽'],
-    keywords: ['#든든한버팀목', '#따뜻한경청자', '#스피치응원단'],
-    isSeed: true,
-    updatedAt: 1700000000006
-  },
-  {
-    id: 'member-김장원',
-    name: '김장원',
-    team: '6조',
-    clubs: ['AI 클럽'],
-    keywords: ['#인사이트뱅크', '#아이디어뱅크', '#끊임없는도전'],
-    isSeed: true,
-    updatedAt: 1700000000007
-  },
-  {
-    id: 'member-김지웅',
-    name: '김지웅',
-    team: '7조',
-    clubs: ['AI 클럽'],
-    keywords: ['#끊임없는도전', '#지적호기심동지', '#믿고맡기는파트너'],
-    isSeed: true,
-    updatedAt: 1700000000008
-  },
-  {
-    id: 'member-권정훈',
-    name: '권정훈',
-    team: '8조',
-    clubs: ['골프 클럽'],
-    keywords: ['#분위기메이커', '#취미공유메이트', '#만나면기분좋은'],
-    isSeed: true,
-    updatedAt: 1700000000009
-  },
-  {
-    id: 'member-강석종',
-    name: '강석종',
-    team: '9조',
-    clubs: ['논어 클럽'],
-    keywords: ['#깊이있는대화', '#따뜻한시선', '#든든한버팀목'],
-    isSeed: true,
-    updatedAt: 1700000000010
-  },
-  {
-    id: 'member-신해리',
-    name: '신해리',
-    team: '10조',
-    clubs: ['댄스 클럽'],
-    keywords: ['#인간비타민', '#산스에너자이저', '#긍정에너지'],
-    isSeed: true,
-    updatedAt: 1700000000011
-  },
-  {
-    id: 'member-최가람',
-    name: '최가람',
-    team: '11조',
-    clubs: ['댄스 클럽'],
-    keywords: ['#웃음제조기', '#함께땀흘리는전우', '#리액션부자'],
-    isSeed: true,
-    updatedAt: 1700000000012
-  },
-  {
-    id: 'member-심재경',
-    name: '심재경',
-    team: '12조',
-    clubs: ['러닝 클럽'],
-    keywords: ['#러닝페이스메이커', '#함께땀흘리는전우', '#올해도함께달려요'],
-    isSeed: true,
-    updatedAt: 1700000000013
-  },
-  {
-    id: 'member-김상범',
-    name: '김상범',
-    team: '13조',
-    clubs: ['바이오 클럽'],
-    keywords: ['#지적호기심동지', '#배울점이가득한', '#토론파트너'],
-    isSeed: true,
-    updatedAt: 1700000000014
-  },
-  {
-    id: 'member-류나연',
-    name: '류나연',
-    team: '14조',
-    clubs: ['바이오 클럽'],
-    keywords: ['#세심한배려왕', '#아이디어뱅크', '#따뜻한경청자'],
-    isSeed: true,
-    updatedAt: 1700000000015
-  },
-  {
-    id: 'member-이태희',
-    name: '이태희',
-    team: '15조',
-    clubs: ['부동산 클럽'],
-    keywords: ['#인사이트뱅크', '#믿고맡기는파트너', '#고민상담소'],
-    isSeed: true,
-    updatedAt: 1700000000016
-  },
-  {
-    id: 'member-김세미',
-    name: '김세미',
-    team: '16조',
-    clubs: ['연극 클럽'],
-    keywords: ['#문화생활메이트', '#폭풍공감러', '#열정만수르'],
-    isSeed: true,
-    updatedAt: 1700000000017
-  },
-  {
-    id: 'member-조유경',
-    name: '조유경',
-    team: '17조',
-    clubs: ['영화 클럽'],
-    keywords: ['#문화생활메이트', '#깊이있는대화', '#따뜻한시선'],
-    isSeed: true,
-    updatedAt: 1700000000018
-  },
-  {
-    id: 'member-조종희',
-    name: '조종희',
-    team: '18조',
-    clubs: ['중급 영어 북클럽'],
-    keywords: ['#토론파트너', '#성장의자극제', '#끊임없는도전'],
-    isSeed: true,
-    updatedAt: 1700000000019
-  },
-  {
-    id: 'member-백혜원',
-    name: '백혜원',
-    team: '19조',
-    clubs: ['초급 영어 북클럽'],
-    keywords: ['#다정한말한마디', '#칭찬폭격기', '#함께걷는동료'],
-    isSeed: true,
-    updatedAt: 1700000000020
-  },
-  {
-    id: 'member-홍수찬',
-    name: '홍수찬',
-    team: '20조',
-    clubs: ['태극권 클럽'],
-    keywords: ['#마음의안식처', '#든든한버팀목', '#오래함께해요'],
-    isSeed: true,
-    updatedAt: 1700000000021
-  },
-  {
-    id: 'member-이정윤',
-    name: '이정윤',
-    team: '5조',
-    clubs: ['English Speech 클럽'],
-    keywords: ['#끊임없는도전', '#긍정에너지', '#상부상조메이트'],
-    isSeed: true,
-    updatedAt: 1700000000022
-  },
-  {
-    id: 'member-추경진',
-    name: '추경진',
-    team: '1조',
-    clubs: ['Sans 레가타 (SANS REGATTA)'],
-    keywords: ['#최고의팀워크', '#함께땀흘리는전우', '#언제나내편'],
-    isSeed: true,
-    updatedAt: 1700000000023
-  },
-  {
-    id: 'member-계홍매',
-    name: '계홍매',
-    team: '2조',
-    clubs: ['Sans 레가타 (SANS REGATTA)'],
-    keywords: ['#최고의팀워크', '#상부상조메이트', '#산스최고의만남'],
-    isSeed: true,
-    updatedAt: 1700000000024
   }
 ];
 
 // Cloud pub-sub topic for zero-config real-time multi-device sync across Vercel instances & smartphones
-export const SYNC_TOPIC_ID = 'sans_connect_graph_v1_ddafe5c9_live';
+export const SYNC_TOPIC_ID = 'sans_connect_graph_v3_live';

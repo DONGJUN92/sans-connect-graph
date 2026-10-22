@@ -845,15 +845,16 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
   return { nodes, edges };
 }
 
-function computeAutoFitScale(nodes) {
-  if (!nodes || nodes.length === 0) return { x: 0, y: 0, k: 0.85 };
+function computeAutoFitScale(nodes, isMobile = false) {
+  if (!nodes || nodes.length === 0) return { x: 0, y: 0, k: isMobile ? 0.60 : 0.85 };
   let maxExtent = 240;
   for (const n of nodes) {
     const d = Math.max(Math.abs(n.x) + 110, Math.abs(n.y) + 95);
     if (d > maxExtent) maxExtent = d;
   }
   // SVG viewBox half-height is 430, half-width is 620
-  const k = Math.min(1.25, Math.max(0.68, 415 / maxExtent));
+  const baseK = Math.min(1.25, Math.max(0.68, 415 / maxExtent));
+  const k = isMobile ? Math.max(0.48, baseK * 0.72) : baseK;
   return { x: 0, y: 0, k };
 }
 
@@ -883,15 +884,17 @@ export default function KnowledgeGraph({
   onSelectFocus,
   personSubMode,
   onChangePersonSubMode,
-  newlyJoinedNames = new Set()
+  newlyJoinedNames = new Set(),
+  isMobile = false
 }) {
   const svgRef = useRef(null);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [dimUnconnected, setDimUnconnected] = useState(true);
 
-  const [transform, setTransform] = useState({ x: 0, y: 0, k: 0.85 });
+  const [transform, setTransform] = useState({ x: 0, y: 0, k: isMobile ? 0.60 : 0.85 });
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
+  const touchStartRef = useRef({ dist: 0, panX: 0, panY: 0, tx: 0, ty: 0, tk: 1 });
 
   const [dragOffsets, setDragOffsets] = useState({});
   const draggingNodeRef = useRef(null);
@@ -926,8 +929,8 @@ export default function KnowledgeGraph({
   useEffect(() => {
     setDragOffsets({});
     setHoveredNodeId(null);
-    setTransform(computeAutoFitScale(nodes));
-  }, [focus.type, focus.id, personSubMode, nodes.length]);
+    setTransform(computeAutoFitScale(nodes, isMobile));
+  }, [focus.type, focus.id, personSubMode, nodes.length, isMobile]);
 
   const nodesWithDrag = useMemo(() => {
     return nodes.map((n) => {
@@ -1034,7 +1037,60 @@ export default function KnowledgeGraph({
 
   const handleResetView = () => {
     setDragOffsets({});
-    setTransform(computeAutoFitScale(nodes));
+    setTransform(computeAutoFitScale(nodes, isMobile));
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      touchStartRef.current = {
+        dist,
+        panX: (t1.clientX + t2.clientX) / 2,
+        panY: (t1.clientY + t2.clientY) / 2,
+        tx: transform.x,
+        ty: transform.y,
+        tk: transform.k
+      };
+    } else if (e.touches.length === 1) {
+      const t = e.touches[0];
+      panStartRef.current = {
+        x: t.clientX,
+        y: t.clientY,
+        tx: transform.x,
+        ty: transform.y
+      };
+      isPanningRef.current = true;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && touchStartRef.current.dist > 0) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const scale = dist / touchStartRef.current.dist;
+      const newK = Math.min(3.0, Math.max(0.25, touchStartRef.current.tk * scale));
+      setTransform((prev) => ({
+        ...prev,
+        k: newK
+      }));
+    } else if (e.touches.length === 1 && isPanningRef.current) {
+      const t = e.touches[0];
+      const dx = t.clientX - panStartRef.current.x;
+      const dy = t.clientY - panStartRef.current.y;
+      setTransform((prev) => ({
+        ...prev,
+        x: panStartRef.current.tx + dx,
+        y: panStartRef.current.ty + dy
+      }));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isPanningRef.current = false;
+    touchStartRef.current.dist = 0;
   };
 
   return (
@@ -1042,7 +1098,11 @@ export default function KnowledgeGraph({
       role="region"
       aria-label="산스 연결망 지식그래프 시각화 영역"
       className="relative w-full h-full overflow-hidden select-none"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
+        touchAction: 'none',
         background: 'radial-gradient(ellipse at 50% 48%, #111C38 0%, #090E1E 58%, #040711 100%)'
       }}
     >
@@ -1714,6 +1774,41 @@ export default function KnowledgeGraph({
           </g>
         </g>
       </svg>
+
+      {/* Floating Zoom & Center Reset Controls */}
+      <div
+        className={`absolute z-20 flex flex-col gap-1.5 shadow-xl ${
+          isMobile ? 'bottom-20 right-3' : 'bottom-6 right-6'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setTransform((prev) => ({ ...prev, k: Math.min(2.5, prev.k * 1.25) }))}
+          aria-label="그래프 확대"
+          title="확대"
+          className="p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-white font-bold transition flex items-center justify-center shadow-lg active:scale-95"
+        >
+          <ZoomIn className="w-4 h-4 text-slate-200" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setTransform((prev) => ({ ...prev, k: Math.max(0.35, prev.k * 0.8) }))}
+          aria-label="그래프 축소"
+          title="축소"
+          className="p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-white font-bold transition flex items-center justify-center shadow-lg active:scale-95"
+        >
+          <ZoomOut className="w-4 h-4 text-slate-200" />
+        </button>
+        <button
+          type="button"
+          onClick={handleResetView}
+          aria-label="그래프 기본 위치로 맞추기"
+          title="전체 맞춤"
+          className="p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-amber-400 font-bold transition flex items-center justify-center shadow-lg active:scale-95"
+        >
+          <Maximize2 className="w-4 h-4 text-amber-400" />
+        </button>
+      </div>
     </div>
   );
 }

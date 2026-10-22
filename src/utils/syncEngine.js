@@ -1,9 +1,13 @@
 import { INITIAL_MEMBERS, SYNC_TOPIC_ID } from '../data/sansData';
 
-const LOCAL_STORAGE_KEY = 'sans_connect_events_v1';
+const LOCAL_STORAGE_KEY = 'sans_connect_events_v3';
 
 export function getLocalEvents() {
   try {
+    // Clean up older legacy mock keys
+    localStorage.removeItem('sans_connect_events_v1');
+    localStorage.removeItem('sans_connect_events_v2');
+
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);

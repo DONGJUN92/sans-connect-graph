@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const TMP_FILE = path.join('/tmp', 'sans_connect_events_v1.json');
+const TMP_FILE = path.join('/tmp', 'sans_connect_events_v3.json');
 
 function loadEvents() {
   if (globalThis.__SANS_EVENTS__) {

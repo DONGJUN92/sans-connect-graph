@@ -312,7 +312,7 @@ export default function App() {
       });
       return { success: true };
     }
-    return { success: false, error: '아이디(test) 또는 비밀번호(test)를 확인해 주세요.' };
+    return { success: false, error: '아이디 또는 비밀번호가 일치하지 않습니다.' };
   };
 
   const handleAdminLogout = () => {

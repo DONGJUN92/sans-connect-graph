@@ -72,7 +72,7 @@ export default function AdminLoginModal({ isOpen, onClose, onLogin }) {
                 setAdminId(e.target.value);
                 setErrorMsg('');
               }}
-              placeholder="id: test"
+              placeholder="운영자 아이디를 입력하세요"
               className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 text-sm font-semibold transition"
             />
           </div>
@@ -89,13 +89,9 @@ export default function AdminLoginModal({ isOpen, onClose, onLogin }) {
                 setAdminPw(e.target.value);
                 setErrorMsg('');
               }}
-              placeholder="pw: test"
+              placeholder="비밀번호를 입력하세요"
               className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 text-sm font-semibold transition"
             />
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs text-slate-400">
-            💡 테스트 안내: 아이디 <strong className="text-amber-300">test</strong> / 비밀번호 <strong className="text-amber-300">test</strong>를 입력해 주세요.
           </div>
 
           <div className="flex items-center gap-2 pt-2">

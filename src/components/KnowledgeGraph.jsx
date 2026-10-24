@@ -68,7 +68,13 @@ function isSameTeamMatch(m1, m2) {
   return null;
 }
 
-function buildGraphLayout(members, focus, personSubMode = 'HUB') {
+function buildGraphLayout(
+  members,
+  focus,
+  personSubMode = 'HUB',
+  myMemberName = '',
+  isMobile = false
+) {
   const nodes = [];
   const edges = [];
   const nodeMap = new Map();
@@ -769,38 +775,56 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
     });
   });
 
-  const regularMembers = members.filter((m) => !m.isRepresentative);
+  const cleanMyName = (
+    myMemberName ||
+    (typeof window !== 'undefined' ? localStorage.getItem('sans_my_name') : '') ||
+    ''
+  ).trim();
 
-  const membersWithAngle = regularMembers.map((m, idx) => {
-    let sinSum = 0;
-    let cosSum = 0;
-    m.clubs.forEach((cName) => {
-      if (clubAngles.has(cName)) {
-        const a = clubAngles.get(cName);
-        sinSum += Math.sin(a);
-        cosSum += Math.cos(a);
-      }
+  // If user typed a name that's not yet in members, include a draft participant so they are part of the network!
+  const effectiveMembers = [...members];
+  if (
+    cleanMyName &&
+    cleanMyName !== '이동훈 대표님' &&
+    !members.some((m) => m.name === cleanMyName)
+  ) {
+    effectiveMembers.push({
+      name: cleanMyName,
+      team: '산스',
+      clubs: [],
+      keywords: [],
+      isDraft: true
     });
-    const prefAngle =
-      m.clubs.length > 0
-        ? Math.atan2(sinSum, cosSum)
-        : (2 * Math.PI * idx) / Math.max(1, regularMembers.length);
-    return { member: m, prefAngle };
-  });
+  }
 
-  membersWithAngle.sort((a, b) => a.prefAngle - b.prefAngle);
+  let regularMembers = effectiveMembers.filter((m) => !m.isRepresentative);
 
-  const mCount = membersWithAngle.length;
-  const memberRadius = Math.max(515, (mCount * 95) / (2 * Math.PI));
+  // If active user name is known, put it FIRST so it's placed at the primary vertical position on mobile!
+  if (cleanMyName) {
+    const myIdx = regularMembers.findIndex((m) => m.name === cleanMyName);
+    if (myIdx > 0) {
+      const [myM] = regularMembers.splice(myIdx, 1);
+      regularMembers.unshift(myM);
+    }
+  }
 
-  membersWithAngle.forEach(({ member: m }, idx) => {
-    const angle = (2 * Math.PI * idx) / Math.max(1, mCount) - Math.PI;
+  const mCount = regularMembers.length;
+  // On mobile, keep memberRadius within a comfortable vertical span (380 ~ 440)
+  const memberRadius = isMobile
+    ? Math.min(440, Math.max(380, (mCount * 90) / (2 * Math.PI)))
+    : Math.max(515, (mCount * 95) / (2 * Math.PI));
+
+  // Base angle offset: on mobile, start from -Math.PI / 2 (top vertical) so primary node is aligned along the phone's vertical screen!
+  const baseAngleOffset = isMobile ? -Math.PI / 2 : -Math.PI;
+
+  regularMembers.forEach((m, idx) => {
+    const angle = (2 * Math.PI * idx) / Math.max(1, mCount) + baseAngleOffset;
     const mNodeId = `member:${m.name}`;
     const firstClubName = m.clubs[0];
     const starColor = CLUB_STAR_COLORS[firstClubName] || '#38BDF8';
 
     const badges = [
-      { text: m.team, color: '#818CF8' },
+      { text: m.team || '산스', color: '#818CF8' },
       ...m.clubs.slice(0, 2).map((c) => ({
         text: clubByName.get(c)?.shortName || c,
         color: CLUB_STAR_COLORS[c] || '#38BDF8'
@@ -812,7 +836,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
       key: m.name,
       nodeType: 'MEMBER',
       label: m.name,
-      subLabel: m.team,
+      subLabel: m.isDraft ? '방문 중 (내 정보 등록 가능)' : m.team,
       member: m,
       sharedBadges: badges,
       x: Math.cos(angle) * memberRadius,
@@ -837,7 +861,7 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
         target: mNodeId,
         kind: 'SANS_TO_MEMBER',
         color: '#64748B',
-        width: 1.8
+        width: 2.0
       });
     }
   });
@@ -845,17 +869,83 @@ function buildGraphLayout(members, focus, personSubMode = 'HUB') {
   return { nodes, edges };
 }
 
-function computeAutoFitScale(nodes, isMobile = false) {
-  if (!nodes || nodes.length === 0) return { x: 0, y: 0, k: isMobile ? 0.60 : 0.85 };
+function computeAutoFitScale(
+  nodes,
+  isMobile = false,
+  focus = { type: 'ALL' },
+  myMemberName = '',
+  svgDimensions = { w: 1240, h: 860 }
+) {
+  if (!nodes || nodes.length === 0) return { x: 0, y: 0, k: isMobile ? 1.05 : 0.85 };
+
+  // On Mobile when viewing ALL (산스 전체 연결 / 전체 연결 먼저 보기):
+  // Focus specifically on [자신의 이름] and [이동훈 대표님]!
+  if (isMobile && focus.type === 'ALL') {
+    const repNode = nodes.find(
+      (n) => n.nodeType === 'SANS_CORE' || n.key === '이동훈 대표님'
+    ) || { x: 0, y: 0 };
+
+    const cleanMyName = (
+      myMemberName ||
+      (typeof window !== 'undefined' ? localStorage.getItem('sans_my_name') : '') ||
+      ''
+    ).trim();
+
+    let myNode = cleanMyName
+      ? nodes.find(
+          (n) =>
+            n.nodeType === 'MEMBER' &&
+            (n.key === cleanMyName || n.label === cleanMyName)
+        )
+      : null;
+
+    if (!myNode) {
+      // Fallback: pick the first regular member node in the graph (e.g. 신동준 or newly joined)
+      myNode = nodes.find((n) => n.nodeType === 'MEMBER');
+    }
+
+    if (myNode) {
+      const midX = (repNode.x + myNode.x) / 2;
+      const midY = (repNode.y + myNode.y) / 2;
+
+      // In mobile portrait (vh ~ 960, vw ~ 480):
+      const spanY = Math.abs(myNode.y - repNode.y) + 260;
+      const spanX = Math.abs(myNode.x - repNode.x) + 240;
+
+      const vh = 960;
+      const vw = Math.max(
+        380,
+        Math.round(vh * (svgDimensions.w / Math.max(1, svgDimensions.h)))
+      );
+
+      const fitK = Math.min(vw / spanX, vh / spanY) * 0.94;
+      const k = Math.min(1.22, Math.max(0.95, fitK));
+
+      return {
+        x: -midX * k,
+        y: -midY * k,
+        k
+      };
+    }
+
+    return { x: 0, y: 0, k: 1.15 };
+  }
+
+  // General bounding box calculation
   let maxExtent = 240;
   for (const n of nodes) {
     const d = Math.max(Math.abs(n.x) + 110, Math.abs(n.y) + 95);
     if (d > maxExtent) maxExtent = d;
   }
-  // SVG viewBox half-height is 430, half-width is 620
+
+  if (isMobile) {
+    // For member/club/team focus on mobile, keep zoom level comfortable and readable!
+    const mobileBaseK = Math.min(1.2, Math.max(0.78, 620 / maxExtent));
+    return { x: 0, y: 0, k: mobileBaseK };
+  }
+
   const baseK = Math.min(1.25, Math.max(0.68, 415 / maxExtent));
-  const k = isMobile ? Math.max(0.48, baseK * 0.72) : baseK;
-  return { x: 0, y: 0, k };
+  return { x: 0, y: 0, k: baseK };
 }
 
 function getNodeAriaLabel(node) {
@@ -885,24 +975,71 @@ export default function KnowledgeGraph({
   personSubMode,
   onChangePersonSubMode,
   newlyJoinedNames = new Set(),
-  isMobile = false
+  isMobile = false,
+  myMemberName = ''
 }) {
   const svgRef = useRef(null);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [dimUnconnected, setDimUnconnected] = useState(true);
 
-  const [transform, setTransform] = useState({ x: 0, y: 0, k: isMobile ? 0.60 : 0.85 });
+  const cleanMyName = (
+    myMemberName ||
+    (typeof window !== 'undefined' ? localStorage.getItem('sans_my_name') : '') ||
+    ''
+  ).trim();
+
+  const [svgDimensions, setSvgDimensions] = useState(() => ({
+    w: typeof window !== 'undefined' ? window.innerWidth : 1240,
+    h: typeof window !== 'undefined' ? window.innerHeight : 860
+  }));
+
+  useEffect(() => {
+    const updateDims = () => {
+      if (svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          setSvgDimensions({ w: rect.width, h: rect.height });
+        }
+      }
+    };
+    updateDims();
+    window.addEventListener('resize', updateDims);
+    window.addEventListener('orientationchange', updateDims);
+    return () => {
+      window.removeEventListener('resize', updateDims);
+      window.removeEventListener('orientationchange', updateDims);
+    };
+  }, []);
+
+  const viewBoxStr = useMemo(() => {
+    const { w, h } = svgDimensions;
+    const isPortrait = h > w;
+    if (isPortrait) {
+      // Mobile / portrait: match container aspect ratio so 100% of height and width are used without letterboxing!
+      const vh = 960;
+      const vw = Math.max(380, Math.round(vh * (w / Math.max(1, h))));
+      return `${-vw / 2} ${-vh / 2} ${vw} ${vh}`;
+    }
+    // Desktop / landscape
+    const vh = 860;
+    const vw = Math.max(1100, Math.round(vh * (w / Math.max(1, h))));
+    return `${-vw / 2} ${-vh / 2} ${vw} ${vh}`;
+  }, [svgDimensions]);
+
+  const { nodes, edges } = useMemo(
+    () => buildGraphLayout(members, focus, personSubMode, myMemberName, isMobile),
+    [members, focus, personSubMode, myMemberName, isMobile]
+  );
+
+  const [transform, setTransform] = useState(() =>
+    computeAutoFitScale(nodes, isMobile, focus, myMemberName, svgDimensions)
+  );
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
   const touchStartRef = useRef({ dist: 0, panX: 0, panY: 0, tx: 0, ty: 0, tk: 1 });
 
   const [dragOffsets, setDragOffsets] = useState({});
   const draggingNodeRef = useRef(null);
-
-  const { nodes, edges } = useMemo(
-    () => buildGraphLayout(members, focus, personSubMode),
-    [members, focus, personSubMode]
-  );
 
   // Screen-reader accessible summary of current graph state
   const screenReaderSummary = useMemo(() => {
@@ -929,8 +1066,17 @@ export default function KnowledgeGraph({
   useEffect(() => {
     setDragOffsets({});
     setHoveredNodeId(null);
-    setTransform(computeAutoFitScale(nodes, isMobile));
-  }, [focus.type, focus.id, personSubMode, nodes.length, isMobile]);
+    setTransform(computeAutoFitScale(nodes, isMobile, focus, myMemberName, svgDimensions));
+  }, [
+    focus.type,
+    focus.id,
+    personSubMode,
+    nodes.length,
+    isMobile,
+    myMemberName,
+    svgDimensions.w,
+    svgDimensions.h
+  ]);
 
   const nodesWithDrag = useMemo(() => {
     return nodes.map((n) => {
@@ -1037,7 +1183,7 @@ export default function KnowledgeGraph({
 
   const handleResetView = () => {
     setDragOffsets({});
-    setTransform(computeAutoFitScale(nodes, isMobile));
+    setTransform(computeAutoFitScale(nodes, isMobile, focus, myMemberName, svgDimensions));
   };
 
   const handleTouchStart = (e) => {
@@ -1116,7 +1262,10 @@ export default function KnowledgeGraph({
         <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-lg rounded-2xl px-4 py-2 flex items-center gap-2.5">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#FBBF24] animate-pulse" />
           <div className="text-xs sm:text-sm font-extrabold text-white">
-            {focus.type === 'ALL' && '👑 이동훈 대표님과 산스 전체 연결'}
+            {focus.type === 'ALL' &&
+              (cleanMyName
+                ? `👑 이동훈 대표님과 ${cleanMyName}님의 산스 연결`
+                : '👑 이동훈 대표님과 산스 전체 연결')}
             {focus.type === 'MEMBER' && `✨ ${focus.id}님과 연결된 분들`}
             {focus.type === 'CLUB' && `🏛️ ${focus.id} 함께하는 분들`}
             {focus.type === 'TEAM' && `🚩 ${focus.id} 함께하는 분들`}
@@ -1178,8 +1327,8 @@ export default function KnowledgeGraph({
         )}
       </div>
 
-      {/* Bottom-Left Compact Zoom Controls */}
-      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-xl rounded-2xl p-1.5">
+      {/* Bottom-Left Compact Zoom Controls (Hidden on mobile to avoid overlapping with bottom dock) */}
+      <div className="hidden sm:flex absolute bottom-4 left-4 z-20 items-center gap-1.5 bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 shadow-xl rounded-2xl p-1.5">
         <button
           onClick={() => setTransform((p) => ({ ...p, k: Math.min(2.5, p.k * 1.18) }))}
           aria-label="연결망 화면 확대"
@@ -1224,10 +1373,13 @@ export default function KnowledgeGraph({
         onPointerMove={handlePointerMoveCanvas}
         onPointerUp={handlePointerUpCanvas}
         onPointerLeave={handlePointerUpCanvas}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         role="region"
         aria-label="산스 구성원 연결 지도"
         className="w-full h-full cursor-grab active:cursor-grabbing"
-        viewBox="-620 -430 1240 860"
+        viewBox={viewBoxStr}
         preserveAspectRatio="xMidYMid meet"
       >
         <defs>
@@ -1399,6 +1551,11 @@ export default function KnowledgeGraph({
                 node.nodeType === 'SANS_CORE' || node.nodeType.endsWith('_HERO');
               const isNewlyJoined =
                 node.member && newlyJoinedNames.has(node.member.name);
+              const isMyNode = Boolean(
+                cleanMyName &&
+                node.nodeType === 'MEMBER' &&
+                (node.key === cleanMyName || node.label === cleanMyName)
+              );
 
               return (
                 <g
@@ -1434,6 +1591,26 @@ export default function KnowledgeGraph({
                         r={node.radius + 10}
                         fill="#FBBF24"
                         fillOpacity={0.32}
+                        filter="url(#supernova-glow)"
+                      />
+                    </g>
+                  )}
+
+                  {/* Golden Halo and Ring for Current User (My Star) */}
+                  {isMyNode && !isNewlyJoined && (
+                    <g className="pointer-events-none">
+                      <circle
+                        r={node.radius + 11}
+                        fill="none"
+                        stroke="#FBBF24"
+                        strokeWidth={2.4}
+                        strokeDasharray="5 3"
+                        opacity={0.95}
+                      />
+                      <circle
+                        r={node.radius + 6}
+                        fill="#FBBF24"
+                        fillOpacity={0.22}
                         filter="url(#supernova-glow)"
                       />
                     </g>
@@ -1549,6 +1726,30 @@ export default function KnowledgeGraph({
                         className="text-[11.5px] font-black fill-slate-950 pointer-events-none"
                       >
                         ✨ NEW 연결!
+                      </text>
+                    </g>
+                  )}
+
+                  {/* "⭐ 나" Pill Badge above User's Own Node */}
+                  {isMyNode && !isNewlyJoined && (
+                    <g transform={`translate(0, ${-(node.radius + 16)})`}>
+                      <rect
+                        x={-19}
+                        y={-10}
+                        width={38}
+                        height={20}
+                        rx={10}
+                        fill="#FBBF24"
+                        stroke="#FFFFFF"
+                        strokeWidth={1.5}
+                      />
+                      <text
+                        x={0}
+                        y={4}
+                        textAnchor="middle"
+                        className="text-[11px] font-black fill-slate-950 pointer-events-none"
+                      >
+                        ⭐ 나
                       </text>
                     </g>
                   )}
@@ -1778,7 +1979,7 @@ export default function KnowledgeGraph({
       {/* Floating Zoom & Center Reset Controls */}
       <div
         className={`absolute z-20 flex flex-col gap-1.5 shadow-xl ${
-          isMobile ? 'bottom-20 right-3' : 'bottom-6 right-6'
+          isMobile ? 'bottom-36 right-3' : 'bottom-6 right-6'
         }`}
       >
         <button

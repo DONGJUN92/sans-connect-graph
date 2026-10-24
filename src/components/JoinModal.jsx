@@ -241,7 +241,7 @@ export default function JoinModal({
         clubs: selectedClubs, // Can be []
         keywords: picks
       });
-      onClose();
+      onClose(name.trim());
     } finally {
       setIsSubmitting(false);
     }
@@ -337,7 +337,7 @@ export default function JoinModal({
         clubs: selectedClubs, // Can be empty array []
         keywords: selectedKeywords
       });
-      onClose();
+      onClose(cleanName);
     } finally {
       setIsSubmitting(false);
     }
@@ -412,7 +412,15 @@ export default function JoinModal({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                const clean = name.trim();
+                if (clean) {
+                  try {
+                    localStorage.setItem('sans_my_name', clean);
+                  } catch {}
+                }
+                onClose(clean);
+              }}
               aria-label="입력 창을 닫고 산스 전체 연결 화면 바로 보기"
               className="py-2.5 sm:py-3 px-3.5 sm:px-4 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-extrabold flex items-center justify-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400"
             >
@@ -691,10 +699,14 @@ export default function JoinModal({
                     <button
                       type="button"
                       onClick={() => {
+                        const clean = loadedMember.name.trim();
+                        try {
+                          localStorage.setItem('sans_my_name', clean);
+                        } catch {}
                         if (onQuickViewMember) {
-                          onQuickViewMember(loadedMember.name);
+                          onQuickViewMember(clean);
                         }
-                        onClose();
+                        onClose(clean);
                       }}
                       className="flex-1 py-3 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-black shadow-sm flex items-center justify-center gap-1.5 transition focus-visible:ring-4 focus-visible:ring-amber-400 break-keep"
                     >

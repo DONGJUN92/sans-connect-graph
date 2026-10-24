@@ -53,6 +53,14 @@ export default function App() {
   const [events, setEvents] = useState(() => getLocalEvents());
   const members = useMemo(() => computeMembersFromEvents(events), [events]);
 
+  // Current user's registered or typed member name
+  const [myMemberName, setMyMemberName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sans_my_name') || '';
+    }
+    return '';
+  });
+
   // Graph Focus state: { type: 'ALL' | 'MEMBER' | 'CLUB' | 'TEAM' | 'KEYWORD', id: string | null }
   const [focus, setFocus] = useState({ type: 'ALL', id: null });
   const [personSubMode, setPersonSubMode] = useState('HUB');
@@ -285,6 +293,13 @@ export default function App() {
   };
 
   const handleSubmitMember = async (memberData) => {
+    const cleanName = memberData.name.trim();
+    if (cleanName) {
+      setMyMemberName(cleanName);
+      try {
+        localStorage.setItem('sans_my_name', cleanName);
+      } catch {}
+    }
     const ev = await publishSyncEvent({
       type: 'UPSERT_MEMBER',
       member: memberData
@@ -297,6 +312,17 @@ export default function App() {
     });
     handleSelectFocus({ type: 'MEMBER', id: memberData.name });
     registerNewLiveArrival(memberData);
+  };
+
+  const handleCloseJoinModal = (typedName) => {
+    if (typedName && typeof typedName === 'string' && typedName.trim()) {
+      const clean = typedName.trim();
+      setMyMemberName(clean);
+      try {
+        localStorage.setItem('sans_my_name', clean);
+      } catch {}
+    }
+    setIsJoinOpen(false);
   };
 
   const handleAdminLogin = (id, pw) => {
@@ -759,6 +785,7 @@ export default function App() {
               onChangePersonSubMode={setPersonSubMode}
               newlyJoinedNames={newlyJoinedNames}
               isMobile={isMobile}
+              myMemberName={myMemberName}
             />
 
             <ConnectionInspector
@@ -835,7 +862,7 @@ export default function App() {
       {/* ==================== 3. MODALS ==================== */}
       <JoinModal
         isOpen={isJoinOpen}
-        onClose={() => setIsJoinOpen(false)}
+        onClose={handleCloseJoinModal}
         members={members}
         onSubmitMember={handleSubmitMember}
         onQuickViewMember={(memberName) => {

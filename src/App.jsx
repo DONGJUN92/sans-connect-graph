@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { SANS_CLUBS, SANS_TEAMS } from './data/sansData';
 import {
-  getLocalEvents,
-  saveLocalEvents,
-  mergeEventLists,
-  computeMembersFromEvents,
-  fetchAllRemoteEvents,
-  publishSyncEvent,
-  subscribeToLiveEvents
+  getCachedMembers,
+  saveCachedMembers,
+  migrateLegacyLocalEventsOnce,
+  fetchMembersFromNeon,
+  upsertMemberInNeon,
+  deleteMemberInNeon
 } from './utils/syncEngine';
 import {
   setVoiceGuideEnabled,
@@ -50,8 +49,7 @@ export default function App() {
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
 
-  const [events, setEvents] = useState(() => getLocalEvents());
-  const members = useMemo(() => computeMembersFromEvents(events), [events]);
+  const [members, setMembers] = useState(() => getCachedMembers());
 
   // Current user's registered or typed member name
   const [myMemberName, setMyMemberName] = useState(() => {
@@ -89,8 +87,9 @@ export default function App() {
   // Real-time newly joined member tracking
   const [toast, setToast] = useState(null);
   const [newlyJoinedNames, setNewlyJoinedNames] = useState(() => new Set());
-  const knownEventIdsRef = useRef(new Set(events.map((e) => e.id)));
+  const knownMemberNamesRef = useRef(new Set(members.map((m) => m.name)));
   const initialLoadDoneRef = useRef(false);
+  const mutationSeqRef = useRef(0);
 
   const handleSelectFocus = (nextFocus) => {
     setFocus(nextFocus);
@@ -222,50 +221,55 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Real-time sync (SSE + 2.5s polling)
+  // Real-time sync with Neon PostgreSQL (1.2s polling + instant window focus sync)
   useEffect(() => {
     let active = true;
+    let isFetching = false;
 
-    const syncFromRemote = async () => {
-      const merged = await fetchAllRemoteEvents();
-      if (!active) return;
+    const syncFromNeon = async () => {
+      if (isFetching || !active) return;
+      isFetching = true;
+      const seqBefore = mutationSeqRef.current;
 
-      for (const ev of merged) {
-        if (!knownEventIdsRef.current.has(ev.id)) {
-          knownEventIdsRef.current.add(ev.id);
-          if (initialLoadDoneRef.current && ev.type === 'UPSERT_MEMBER' && ev.member?.name) {
-            registerNewLiveArrival(ev.member);
+      try {
+        await migrateLegacyLocalEventsOnce();
+        const remoteMembers = await fetchMembersFromNeon();
+        if (!active || !remoteMembers) return;
+        // Ignore stale GET responses if an add/delete mutation started while GET was in flight
+        if (seqBefore !== mutationSeqRef.current) return;
+
+        const nextKnown = new Set();
+        for (const m of remoteMembers) {
+          nextKnown.add(m.name);
+          if (initialLoadDoneRef.current && !knownMemberNamesRef.current.has(m.name)) {
+            registerNewLiveArrival(m);
           }
         }
-      }
+        knownMemberNamesRef.current = nextKnown;
+        initialLoadDoneRef.current = true;
 
-      initialLoadDoneRef.current = true;
-      saveLocalEvents(merged);
-      setEvents(merged);
+        setMembers(remoteMembers);
+      } finally {
+        isFetching = false;
+      }
     };
 
-    syncFromRemote();
-    const interval = setInterval(syncFromRemote, 2500);
+    syncFromNeon();
+    const interval = setInterval(syncFromNeon, 1200);
 
-    const unsubscribeSSE = subscribeToLiveEvents((newEvent) => {
-      if (!active) return;
-      if (!knownEventIdsRef.current.has(newEvent.id)) {
-        knownEventIdsRef.current.add(newEvent.id);
-        if (newEvent.type === 'UPSERT_MEMBER' && newEvent.member?.name) {
-          registerNewLiveArrival(newEvent.member);
-        }
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncFromNeon();
       }
-      setEvents((prev) => {
-        const next = mergeEventLists(prev, [newEvent]);
-        saveLocalEvents(next);
-        return next;
-      });
-    });
+    };
+    window.addEventListener('focus', syncFromNeon);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
     return () => {
       active = false;
       clearInterval(interval);
-      unsubscribeSSE();
+      window.removeEventListener('focus', syncFromNeon);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
   }, []);
 
@@ -294,33 +298,68 @@ export default function App() {
 
   const handleSubmitMember = async (memberData) => {
     const cleanName = memberData.name.trim();
-    if (cleanName) {
-      setMyMemberName(cleanName);
-      try {
-        localStorage.setItem('sans_my_name', cleanName);
-      } catch {}
-    }
-    const ev = await publishSyncEvent({
-      type: 'UPSERT_MEMBER',
-      member: memberData
-    });
-    knownEventIdsRef.current.add(ev.id);
-    setEvents((prev) => {
-      const next = mergeEventLists(prev, [ev]);
-      saveLocalEvents(next);
+    if (!cleanName) return;
+
+    mutationSeqRef.current += 1;
+    setMyMemberName(cleanName);
+    try {
+      localStorage.setItem('sans_my_name', cleanName);
+    } catch {}
+
+    knownMemberNamesRef.current.add(cleanName);
+
+    // 1. Instant 0ms optimistic UI update
+    const optimisticMember = {
+      id: `member-${cleanName}`,
+      name: cleanName,
+      team: memberData.team || '5조',
+      allTeams: cleanName === '이동훈 대표님',
+      isRepresentative: cleanName === '이동훈 대표님',
+      isSeed: cleanName === '이동훈 대표님' || cleanName === '신동준',
+      isLiveJoined: true,
+      clubs: Array.isArray(memberData.clubs) ? memberData.clubs : [],
+      keywords: Array.isArray(memberData.keywords) ? memberData.keywords : [],
+      updatedAt: Date.now()
+    };
+
+    setMembers((prev) => {
+      const idx = prev.findIndex((m) => m.name === cleanName);
+      let next;
+      if (idx >= 0) {
+        next = [...prev];
+        next[idx] = { ...prev[idx], ...optimisticMember };
+      } else {
+        next = [...prev, optimisticMember];
+      }
+      saveCachedMembers(next);
       return next;
     });
-    handleSelectFocus({ type: 'MEMBER', id: memberData.name });
-    registerNewLiveArrival(memberData);
+
+    handleSelectFocus({ type: 'MEMBER', id: cleanName });
+    registerNewLiveArrival(optimisticMember);
+
+    // 2. Persist to Neon PostgreSQL and sync authoritative list
+    const remoteMembers = await upsertMemberInNeon({
+      ...memberData,
+      name: cleanName
+    });
+    if (remoteMembers) {
+      mutationSeqRef.current += 1;
+      knownMemberNamesRef.current = new Set(remoteMembers.map((m) => m.name));
+      setMembers(remoteMembers);
+    }
   };
 
   const handleCloseJoinModal = (typedName) => {
     if (typedName && typeof typedName === 'string' && typedName.trim()) {
       const clean = typedName.trim();
-      setMyMemberName(clean);
-      try {
-        localStorage.setItem('sans_my_name', clean);
-      } catch {}
+      // Only persist sans_my_name if the member actually exists in members
+      if (members.some((m) => m.name === clean)) {
+        setMyMemberName(clean);
+        try {
+          localStorage.setItem('sans_my_name', clean);
+        } catch {}
+      }
     }
     setIsJoinOpen(false);
   };
@@ -359,24 +398,44 @@ export default function App() {
       alert('중앙 허브인 이동훈 대표님 정보는 삭제할 수 없습니다.');
       return;
     }
-    const ev = await publishSyncEvent({
-      type: 'DELETE_MEMBER',
-      name: cleanName
-    });
-    knownEventIdsRef.current.add(ev.id);
-    setEvents((prev) => {
-      const next = mergeEventLists(prev, [ev]);
-      saveLocalEvents(next);
+
+    mutationSeqRef.current += 1;
+    knownMemberNamesRef.current.delete(cleanName);
+
+    // Clear myMemberName if the deleted member was the active user name on this browser
+    if (myMemberName === cleanName) {
+      setMyMemberName('');
+    }
+    try {
+      if (localStorage.getItem('sans_my_name') === cleanName) {
+        localStorage.removeItem('sans_my_name');
+      }
+    } catch {}
+
+    // 1. Instant 0ms optimistic UI removal
+    setMembers((prev) => {
+      const next = prev.filter((m) => m.name !== cleanName);
+      saveCachedMembers(next);
       return next;
     });
+
     if (focus.type === 'MEMBER' && focus.id === cleanName) {
       handleSelectFocus({ type: 'ALL', id: null });
     }
+
     setToast({
       name: cleanName,
       team: '삭제 완료',
       clubs: ['운영자에 의해 삭제되었습니다.']
     });
+
+    // 2. Delete from Neon PostgreSQL and sync authoritative list
+    const remoteMembers = await deleteMemberInNeon(cleanName);
+    if (remoteMembers) {
+      mutationSeqRef.current += 1;
+      knownMemberNamesRef.current = new Set(remoteMembers.map((m) => m.name));
+      setMembers(remoteMembers);
+    }
   };
 
   const handleOpenEditMember = (memberName = '') => {

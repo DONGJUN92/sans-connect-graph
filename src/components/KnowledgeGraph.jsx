@@ -775,29 +775,14 @@ function buildGraphLayout(
     });
   });
 
-  const cleanMyName = (
+  const rawMyName = (
     myMemberName ||
     (typeof window !== 'undefined' ? localStorage.getItem('sans_my_name') : '') ||
     ''
   ).trim();
+  const cleanMyName = members.some((m) => m.name === rawMyName) ? rawMyName : '';
 
-  // If user typed a name that's not yet in members, include a draft participant so they are part of the network!
-  const effectiveMembers = [...members];
-  if (
-    cleanMyName &&
-    cleanMyName !== '이동훈 대표님' &&
-    !members.some((m) => m.name === cleanMyName)
-  ) {
-    effectiveMembers.push({
-      name: cleanMyName,
-      team: '산스',
-      clubs: [],
-      keywords: [],
-      isDraft: true
-    });
-  }
-
-  let regularMembers = effectiveMembers.filter((m) => !m.isRepresentative);
+  let regularMembers = members.filter((m) => !m.isRepresentative);
 
   // If active user name is known, put it FIRST so it's placed at the primary vertical position on mobile!
   if (cleanMyName) {
@@ -982,11 +967,12 @@ export default function KnowledgeGraph({
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [dimUnconnected, setDimUnconnected] = useState(true);
 
-  const cleanMyName = (
+  const rawMyName = (
     myMemberName ||
     (typeof window !== 'undefined' ? localStorage.getItem('sans_my_name') : '') ||
     ''
   ).trim();
+  const cleanMyName = members.some((m) => m.name === rawMyName) ? rawMyName : '';
 
   const [svgDimensions, setSvgDimensions] = useState(() => ({
     w: typeof window !== 'undefined' ? window.innerWidth : 1240,

@@ -35,8 +35,9 @@ export default function AdminPanel({
 
   const handleConfirmDelete = async () => {
     if (!confirmDeleteTarget) return;
-    await onDeleteMember(confirmDeleteTarget.name);
+    const targetName = confirmDeleteTarget.name;
     setConfirmDeleteTarget(null);
+    await onDeleteMember(targetName);
   };
 
   return (
